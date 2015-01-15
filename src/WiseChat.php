@@ -7,6 +7,8 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChat {
+	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
+
 	private $baseDir;
 	private $options;
 	
@@ -238,9 +240,9 @@ class WiseChat {
 		$this->startSession();
 
 		if (!array_key_exists('wise_chat_user_name', $_SESSION)) {
-			$lastNameId = intval(get_option('wise_chat_last_name_id', 1)) + 1;
-			update_option('wise_chat_last_name_id', $lastNameId);
-			$_SESSION['wise_chat_user_name'] = $this->options['user_name_prefix'].get_option('wise_chat_last_name_id');
+			$lastNameId = intval(get_option(self::LAST_NAME_ID_OPTION, 1)) + 1;
+			update_option(self::LAST_NAME_ID_OPTION, $lastNameId);
+			$_SESSION['wise_chat_user_name'] = $this->options['user_name_prefix'].get_option(self::LAST_NAME_ID_OPTION);
 		}
 	}
 	

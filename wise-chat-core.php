@@ -1,7 +1,7 @@
 <?php
 /*
 	Plugin Name: Wise Chat
-	Version: 1.0.0
+	Version: 1.1.0
 	Plugin URI: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 	Description: Displays Ajax-powered Chat.
 	Author: Marcin Ławrowski
@@ -21,6 +21,7 @@ register_deactivation_hook(__FILE__, array('WiseChatInstaller', 'uninstall'));
 // settings for admin:
 if (is_admin()) {
 	$settings = new WiseChatSettings();
+	$settings->initialize();
 }
 
 // initialize core:

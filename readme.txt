@@ -4,7 +4,7 @@ Donate link: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 Tags: chat, plugin, ajax, javascript, shortcode, social
 Requires at least: 3.6
 Tested up to: 4.0
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,7 +74,7 @@ Log in as an administrator and type:
 
 1. The chat after installation.
 2. Multiple chats on the same page.
-3. Customizatios.
+3. Customizations.
 4. Settings page.
 
 == Changelog ==
