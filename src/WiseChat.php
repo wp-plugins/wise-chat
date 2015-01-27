@@ -1,5 +1,10 @@
 <?php
 
+require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatBansDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
+require_once(dirname(__FILE__).'/WiseChatRenderer.php');
+
 /**
  * Wise Chat core class.
  *
@@ -7,21 +12,43 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChat {
-	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
-
 	private $baseDir;
 	private $options;
 	
+	/**
+	* @var WiseChatMessagesDAO
+	*/
+	private $messagesDAO;
+	
+	/**
+	* @var WiseChatBansDAO
+	*/
+	private $bansDAO;
+	
+	/**
+	* @var WiseChatUsersDAO
+	*/
+	private $usersDAO;
+	
+	/**
+	* @var WiseChatRenderer
+	*/
+	private $renderer;
+	
 	public function __construct($baseDir) {
 		$this->baseDir = $baseDir;
-		$this->options = get_option('wise_chat_options_name');
+		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->messagesDAO = new WiseChatMessagesDAO();
+		$this->bansDAO = new WiseChatBansDAO();
+		$this->usersDAO = new WiseChatUsersDAO();
+		$this->renderer = new WiseChatRenderer();
 	}
 	
 	public function initializeCore() {
 		add_action('wp_enqueue_scripts', array($this, 'enqueueScripts'));
 		
-		$this->generateUserName();
-		add_action('plugins_loaded', array($this, 'generateLoggedUserName'));
+		$this->usersDAO->generateUserName();
+		add_action('plugins_loaded', array($this->usersDAO, 'generateLoggedUserName'));
 		
 		add_shortcode('wise-chat', array($this, 'renderShortcode'));
 	}
@@ -48,117 +75,37 @@ class WiseChat {
 		return $this->getRenderedChat($channel);;
 	}
 	
-	public function getCurrentUserName() {
-		$this->startSession();
-		
-		if (array_key_exists('wise_chat_user_name', $_SESSION)) {
-			return $_SESSION['wise_chat_user_name'];
-		} else {
-			return null;
-		}
-	}
-	
-	public function getAjaxMessages() {
-		$lastId = intval($this->getGetParam('lastId', 0));
-		$channel = $this->getGetParam('channel');
-		
-		$response = array();
-		$response['result'] = array();
-		if (strlen($channel) > 0) {	
-			$messages = $this->getMessages($channel, $lastId > 0 ? $lastId : null);
-			foreach ($messages as $message) {
-				// ommit non-admin messages:
-				if ($message->admin == 1 && !$this->isWpUserAdminLogged()) {
-					continue;
-				}
-				
-				$messageToJson = array();
-				$messageToJson['text'] = $this->getRenderedMessage($message);
-				$messageToJson['id'] = $message->id;
-				
-				$response['result'][] = $messageToJson;
-			}
-		}
-    
-		echo json_encode($response);
-		die();
-	}
-	
-	public function handleAjaxMessage() {
-		$_POST = stripslashes_deep($_POST);
-    
-		$response = array();
-		$channel = $this->getPostParam('channel');
-		$message = $this->getPostParam('message');
-		
-		$ban = $this->getBanByIp($_SERVER['REMOTE_ADDR']);
-		if ($ban != null) {
-			$response['error'] = 'You were banned from posting messages';
-		} else {
-			if (strlen($message) > 0 && strlen($channel) > 0) {
-			
-				$wiseChatCommandsResolver = new WiseChatCommandsResolver($this);
-				$isCommandResolved = $wiseChatCommandsResolver->resolve($this->getCurrentUserName(), $channel, $message);
-				if (!$isCommandResolved) {
-					$this->addMessage($this->getCurrentUserName(), $channel, $message, false);
-				}
-				$response['result'] = 'OK';
-			} else {
-				$response['error'] = 'Missing required fields';
-			}
-		}
-		
-		echo json_encode($response);
-		die();
-	}
-	
-	public function addMessage($user, $channel, $message, $isAdmin = false) {
-		global $wpdb;
-		
-		$badWordsFilter = $this->options['filter_bad_words'] == '1' && $isAdmin == 0;
-		$table = WiseChatInstaller::getMessagesTable();
-		$wpdb->insert($table,
-			array(
-				'time' => time(),
-				'admin' => $isAdmin ? 1 : 0,
-				'user' => $user,
-				'text' => $badWordsFilter ? WiseChatFilter::filter($message) : $message,
-				'channel' => $channel,
-				'ip' => $_SERVER['REMOTE_ADDR']
-			)
-		);
-	}
-	
 	private function getRenderedChat($channel = null) {
 		$outString = '';
 
-		if ($channel === null) {
+		if ($channel === null || $channel === '') {
 			$channel = 'global';
 		}
 		$chatId = 'wc'.md5(uniqid('', true));
 		
-		$messages = $this->getMessages($channel);
+		$messages = $this->messagesDAO->getMessages($channel);
 		$messagesRendering = '';
 		$lastId = 0;
 		foreach ($messages as $message) {
 			// ommit non-admin messages:
-			if ($message->admin == 1 && !$this->isWpUserAdminLogged()) {
+			if ($message->admin == 1 && !$this->usersDAO->isWpUserAdminLogged()) {
 				continue;
 			}
 				
-			$messagesRendering .= $this->getRenderedMessage($message);
+			$messagesRendering .= $this->renderer->getRenderedMessage($message);
 			$messagesRendering .= "<br />";
 			$lastId = $message->id;
 		}
 		
 		$hintMessage = str_replace("'", '', $this->options['hint_message']);
-		$messagesBgColor = !empty($this->options['background_color']) ? "background-color: ".$this->options['background_color'].";" : '';
-		$inpuBgColor = !empty($this->options['background_color_input']) ? "background-color: ".$this->options['background_color_input'].";" : '';
-		$textColor = !empty($this->options['text_color']) ? "color: ".$this->options['text_color'].";" : '';
 		
+		$customizationsPanel = $this->getCustomizationsPanel();
+		$userNamePanel = $this->getCurrentUserNamePanel();
 		$outString .= "<div id='$chatId' class='wcContainer'>
-				<div class='wcMessages' style='$messagesBgColor $textColor'>{$messagesRendering}</div>
-				<input class='wcInput' type='text' maxlength='{$this->options['message_max_length']}' placeholder='$hintMessage'  style='$inpuBgColor $textColor' />
+				<div class='wcMessages'>{$messagesRendering}</div>
+				$userNamePanel
+				<input class='wcInput' type='text' maxlength='{$this->options['message_max_length']}' placeholder='$hintMessage' />
+				$customizationsPanel
 			</div>
 		";
 		
@@ -170,120 +117,41 @@ class WiseChat {
 		);
 		$jsOptionsRender = json_encode($jsOptions);
 		
+		$outString .= $this->renderer->getRenderedStylesDefinition($chatId);
 		$outString .= "<script type='text/javascript'>jQuery(window).load(function() {  new WiseChatController({$jsOptionsRender}); }); </script>";
+		
+		$this->bansDAO->deleteOldBans();
 		
 		return $outString;
 	}
 	
-	private function getMessages($channel, $fromId = null) {
-		global $wpdb;
+	private function getCurrentUserNamePanel() {
+		$html = "";
+		$showUserName = isset($this->options['show_user_name']) && $this->options['show_user_name'] == '1' && !is_user_logged_in();
+		$currentUserName = $this->usersDAO->getUserName();
 		
-		$limit = intval($this->options['messages_limit']);
-		$channel = addslashes($channel);
-		$table = WiseChatInstaller::getMessagesTable();
-		
-		$conditions = array();
-		$conditions[] = "channel = '{$channel}'";
-		if ($fromId !== null) {
-			$fromId = intval($fromId);
-			$conditions[] = "id > {$fromId}";
-		}
-		if (!$this->isWpUserAdminLogged()) {
-			$conditions[] = "admin = 0";
+		if ($showUserName) {
+			$html = "<span class='wcCurrentUserName'>$currentUserName:</span>";
 		}
 		
-		$sql = "SELECT * FROM {$table} ".
-				(count($conditions) > 0 ? ' WHERE '.implode(' AND ', $conditions) : '').
-				" ORDER BY id DESC ".
-				" LIMIT {$limit};";
-		
-		$messages = $wpdb->get_results($sql);
-		
-		$this->deleteBans();
-		
-		return array_reverse($messages, true);
+		return $html;
 	}
 	
-	private function startSession() {
-		if (!isset($_SESSION)) {
-			session_start();
+	private function getCustomizationsPanel() {
+		$html = '';
+		$allowChangeUserName = isset($this->options['allow_change_user_name']) && $this->options['allow_change_user_name'] == '1' && !is_user_logged_in();
+		$currentUserName = $this->usersDAO->getUserName();
+		
+		if ($allowChangeUserName === true) {
+			$html .= "<div class='wcCustomizations'>
+					<a href='javascript://' class='wcCustomizeButton'>Customize</a>
+					<div class='wcCustomizationsPanel' style='display:none;'>
+						<label>Name: <input class='wcUserName' type='text' value='$currentUserName' /></label><input class='wcUserNameApprove' type='button' value='OK' />
+					</div>
+				</div>
+			";
 		}
-	}
-	
-	private function getPostParam($name, $default = null) {
-		return array_key_exists($name, $_POST) ? $_POST[$name] : $default;
-	}
-	
-	private function getGetParam($name, $default = null) {
-		return array_key_exists($name, $_GET) ? $_GET[$name] : $default;
-	}
-	
-	private function getRenderedMessage($message) {
-		$addDate = '';
-		if (date('Y-m-d', $message->time) != date('Y-m-d')) {
-			$addDate = date('Y-m-d', $message->time).' ';
-		}
-		$formated = '<span class="wcMessageTime">'.$addDate.date('H:i', $message->time).'</span> ';
 		
-		$userName = $message->user;
-		if ($userName == $this->getCurrentUserName()) {
-			$userName = "<strong>{$userName}</strong>";
-		}
-		$formated .= '<span class="wcMessageUser">'.$userName.'</span>: ';
-		
-		$formated .= htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8');
-		
-		return $formated;
-	}
-	
-	private function generateUserName() {
-		$this->startSession();
-
-		if (!array_key_exists('wise_chat_user_name', $_SESSION)) {
-			$lastNameId = intval(get_option(self::LAST_NAME_ID_OPTION, 1)) + 1;
-			update_option(self::LAST_NAME_ID_OPTION, $lastNameId);
-			$_SESSION['wise_chat_user_name'] = $this->options['user_name_prefix'].get_option(self::LAST_NAME_ID_OPTION);
-		}
-	}
-	
-	public function generateLoggedUserName() {
-		if (is_user_logged_in()) {
-			$currentUser = wp_get_current_user();
-			$displayName = $currentUser->display_name;
-			if (strlen($displayName) > 0) {
-				if (!array_key_exists('wise_chat_user_name_auto', $_SESSION)) {
-					$_SESSION['wise_chat_user_name_auto'] = $_SESSION['wise_chat_user_name'];
-				}
-				$_SESSION['wise_chat_user_name'] = $displayName;
-			}
-		} else {
-			if (array_key_exists('wise_chat_user_name_auto', $_SESSION)) {
-				$_SESSION['wise_chat_user_name'] = $_SESSION['wise_chat_user_name_auto'];
-			}
-		}
-	}
-	
-	private function isWpUserAdminLogged() {
-		return current_user_can('manage_options');
-	}
-	
-	private function deleteBans() {
-		global $wpdb;
-		
-		$time = time();
-		$table = WiseChatInstaller::getBansTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE time < $time");
-	}
-	
-	private function getBanByIp($ip) {
-		global $wpdb;
-		
-		$this->deleteBans();
-		
-		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$messages = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\" LIMIT 1;");
-		
-		return is_array($messages) && count($messages) > 0 ? $messages[0] : null;
+		return $html;
 	}
 }

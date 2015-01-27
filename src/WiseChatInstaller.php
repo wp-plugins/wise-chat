@@ -79,6 +79,6 @@ class WiseChatInstaller {
 		$wpdb->query($sql);
 		
 		delete_option(WiseChatSettings::OPTIONS_NAME);
-		delete_option(WiseChat::LAST_NAME_ID_OPTION);
+		delete_option(WiseChatUsersDAO::LAST_NAME_ID_OPTION);
 	}
 }

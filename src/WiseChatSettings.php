@@ -20,8 +20,13 @@ class WiseChatSettings {
 	/**
 	* @var array Tabs definition
 	*/
-	private $tabs = array('wise-chat-general' => 'General', 'wise-chat-appearance' => 'Appearance');
+	private $tabs = array('wise-chat-general' => 'General', 'wise-chat-appearance' => 'Appearance', 'wise-chat-bans' => 'Bans');
 	
+	/**
+	* Initializes settings page link in admin menu.
+	*
+	* @return null
+	*/
 	public function initialize() {
 		add_action('admin_menu', array($this, 'addAdminMenu'));
 		add_action('admin_enqueue_scripts', array($this, 'enqueueScripts'));

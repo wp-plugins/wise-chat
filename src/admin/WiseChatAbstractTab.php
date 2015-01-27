@@ -7,10 +7,25 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 abstract class WiseChatAbstractTab {
+	/**
+	* @var WiseChatBansDAO
+	*/
+	protected $bansDAO;
+	
+	/**
+	* @var WiseChatUsersDAO
+	*/
+	protected $usersDAO;
+	
+	/**
+	* @var array
+	*/
 	protected $options;
 	
 	public function __construct($options) {
 		$this->options = $options;
+		$this->bansDAO = new WiseChatBansDAO();
+		$this->usersDAO = new WiseChatUsersDAO();
 	}
 	
 	/**

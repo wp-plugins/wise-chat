@@ -15,7 +15,8 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 			array('message_max_length', 'Message Max Length', 'messageMaxLengthCallback'),
 			array('user_name_prefix', 'User Name Prefix', 'userNamePrefixCallback'),
 			array('filter_bad_words', 'Filter Bad Words', 'filterBadWordsCallback'),
-			array('admin_actions', 'Admin Actions', 'adminActionsCallback')
+			array('allow_change_user_name', 'Allow To Change User Name', 'allowChangeUserNameCallback'),
+			array('admin_actions', 'Admin Actions', 'adminActionsCallback'),
 		);
 	}
 	
@@ -26,6 +27,7 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 			'message_max_length' => 400,
 			'user_name_prefix' => 'Anonymous',
 			'filter_bad_words' => 1,
+			'allow_change_user_name' => 0,
 			'admin_actions' => null
 		);
 	}
@@ -83,6 +85,15 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 		);	
 	}
 	
+	public function allowChangeUserNameCallback()
+	{
+		printf(
+			'<input type="checkbox" id="allow_change_user_name" name="'.WiseChatSettings::OPTIONS_NAME.'[allow_change_user_name]" value="1" %s />
+			<p class="description">Permits an anonymous user to change his/her name displayed on the chat</p>',
+			$this->options['allow_change_user_name'] == '1' ? ' checked="1" ' : ''
+		);	
+	}
+	
 	public function adminActionsCallback() {
 		$url = admin_url("options-general.php?page=".WiseChatSettings::MENU_SLUG."&wc_action=clearMessages");
 		
@@ -102,6 +113,12 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 			$new_input['filter_bad_words'] = 1;
 		} else {
 			$new_input['filter_bad_words'] = 0;
+		}
+		
+		if (isset($input['allow_change_user_name']) && $input['allow_change_user_name'] == '1') {
+			$new_input['allow_change_user_name'] = 1;
+		} else {
+			$new_input['allow_change_user_name'] = 0;
 		}
 		
 		if (isset($input['message_max_length'])) {

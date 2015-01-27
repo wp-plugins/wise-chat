@@ -11,10 +11,7 @@ require_once "WiseChatAbstractCommand.php";
  */
 class WiseChatBansCommand extends WiseChatAbstractCommand {
 	public function execute() {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getBansTable();
-		$currentBans = $wpdb->get_results("SELECT * FROM {$table} LIMIT 10000;");
+		$currentBans = $this->bansDAO->getAll();
 		
 		if (is_array($currentBans) && count($currentBans) > 0) {
 			$bans = array();
