@@ -59,7 +59,8 @@ class WiseChatInstaller {
 		}
 		
 		// default options:
-		WiseChatSettings::setDefaultOptions(true);
+		$settings = new WiseChatSettings();
+		$settings->setDefaultSettings();
 	}
 	
 	public static function uninstall() {
@@ -76,5 +77,8 @@ class WiseChatInstaller {
 		$tableName = self::getBansTable();
 		$sql = "DROP TABLE IF EXISTS {$tableName};";
 		$wpdb->query($sql);
+		
+		delete_option(WiseChatSettings::OPTIONS_NAME);
+		delete_option(WiseChatUsersDAO::LAST_NAME_ID_OPTION);
 	}
 }

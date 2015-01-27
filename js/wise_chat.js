@@ -6,18 +6,22 @@
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 function WiseChatController(options) {
-	// fields:
 	this.lastId = options.lastId;
 	this.ajaxMessagesRefreshTime = 2000;
-	this.ajaxMessagesBackend = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_get_messages';
-	this.ajaxMessagesHandlerBackend = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_handle_message';
+	this.messagesEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_messages_endpoint';
+	this.messageEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_message_endpoint';
+	this.settingsEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_settings_endpoint';
 	this.container = jQuery('#' + options.chatId);
 	this.messagesContainer = this.container.find('.wcMessages');
 	this.messagesInput = this.container.find('.wcInput');
+	this.currentUserName = this.container.find('.wcCurrentUserName');
+	this.customizeButton = this.container.find('a.wcCustomizeButton');
+	this.customizationsPanel = this.container.find('.wcCustomizationsPanel');
+	this.userNameInput = this.container.find('.wcCustomizationsPanel input.wcUserName');
+	this.userNameApproveButton = this.container.find('.wcCustomizationsPanel input.wcUserNameApprove');
 	this.channel = options.channel;
 	this.refresherInitialized = false;
 	
-	// methods:
 	this.scrollMessages = function() {
 		this.messagesContainer.scrollTop(this.messagesContainer[0].scrollHeight);
 	};
@@ -41,7 +45,7 @@ function WiseChatController(options) {
 		setInterval(jQuery.proxy(function() {
 			jQuery.ajax({
 				type: "GET",
-				url: this.ajaxMessagesBackend,
+				url: this.messagesEndpoint,
 				data: {
 					channel: this.channel,
 					lastId: this.lastId
@@ -76,11 +80,11 @@ function WiseChatController(options) {
 		try {
 			var response = jQuery.parseJSON(result);
 			if (response.error) {
-				this.showErrorMessage('Error while sending message: ' + response.error);
+				this.showErrorMessage(response.error);
 			}
 		}
 		catch (e) {
-			this.showErrorMessage('Unknown error while sending message: ' + e.toString());
+			this.showErrorMessage('Unknown error: ' + e.toString());
 		}
 		this.scrollMessages();
 	};
@@ -88,7 +92,7 @@ function WiseChatController(options) {
 	this.sendMessage = function(message, channel) {
 		jQuery.ajax({
 			type: "POST",
-			url: this.ajaxMessagesHandlerBackend,
+			url: this.messageEndpoint,
 			data: {
 				channel: channel,
 				message: message
@@ -104,8 +108,46 @@ function WiseChatController(options) {
 		};
 	};
 	
+	this.onCustomizeButtonClick = function(e) {
+		this.customizationsPanel.toggle();
+	};
+	
+	this.onUserNameApproveButtonClick = function(e) {
+		var userName = this.userNameInput.val().trim();
+		if (userName.length > 0) {
+			this.customizationsPanel.hide();
+			
+			jQuery.ajax({
+				type: "POST",
+				url: this.settingsEndpoint,
+				data: {
+					property: 'userName',
+					value: userName
+				}
+			})
+			.success(jQuery.proxy(this.onUserNameChanged, this));
+		}
+	};
+	
+	this.onUserNameChanged = function(result) {
+		try {
+			var response = jQuery.parseJSON(result);
+			if (response.error) {
+				this.showErrorMessage(response.error);
+			} else {
+				this.currentUserName.html(response.value + ':');
+			}
+		}
+		catch (e) {
+			this.showErrorMessage('Unknown error: ' + e.toString());
+		}
+		this.scrollMessages();
+	};
+	
 	// init:
 	this.initializeRefresher();
 	this.messagesInput.keypress(jQuery.proxy(this.onInputKeyPress, this));
+	this.customizeButton.click(jQuery.proxy(this.onCustomizeButtonClick, this));
+	this.userNameApproveButton.click(jQuery.proxy(this.onUserNameApproveButtonClick, this));
 	this.scrollMessages();
 };

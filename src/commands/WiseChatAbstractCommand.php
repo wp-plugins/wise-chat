@@ -8,17 +8,42 @@
  * @project wise-chat
  */
 class WiseChatAbstractCommand {
-	protected $wiseChat;
+	const SYSTEM_USER_NAME = 'System';
+
+	/**
+	* @var string
+	*/
 	protected $channel;
+	
+	/**
+	* @var string
+	*/
 	protected $arguments;
 	
-	public function __construct(WiseChat $wiseChat, $channel, $arguments) {
-		$this->wiseChat = $wiseChat;
+	/**
+	* @var WiseChatMessagesDAO
+	*/
+	protected $messagesDAO;
+	
+	/**
+	* @var WiseChatUsersDAO
+	*/
+	protected $usersDAO;
+	
+	/**
+	* @var WiseChatBansDAO
+	*/
+	protected $bansDAO;
+	
+	public function __construct($channel, $arguments) {
+		$this->messagesDAO = new WiseChatMessagesDAO();
+		$this->bansDAO = new WiseChatBansDAO();
+		$this->usersDAO = new WiseChatUsersDAO();
 		$this->arguments = $arguments;
 		$this->channel = $channel;
 	}
 	
 	protected function addMessage($message) {
-		$this->wiseChat->addMessage('System', $this->channel, $message, 1);
+		$this->messagesDAO->addMessage(self::SYSTEM_USER_NAME, $this->channel, $message, true);
 	}
 }

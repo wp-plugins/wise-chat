@@ -10,10 +10,18 @@
 	width: 100%; height: 200px; overflow: auto; border: 1px solid #dfdfdf; padding: 5px; background-color: #fff; margin: 5px 0px;
 }
 
-.wcContainer input {
+.wcContainer input.wcInput {
 	width: 100%;
 }
 
 .wcErrorMessage {
 	color: #ff0000;
+}
+
+.wcCustomizations a {
+	font-size: 80%;
+}
+
+.wcUserName {
+	margin-right: 5px;
 }
