@@ -9,50 +9,114 @@ require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChatRenderer {
+	const URL_REGEXP = "/((https|http|ftp)\:\/\/)?([\-_a-z0-9A-Z]+\.)+[a-zA-Z]{2,6}(\/[^ \?]*)?(\?[^\"'<> ]+)?/i";
+	const URL_PROTOCOLS_REGEXP = "/^(https|http|ftp)\:\/\//i";
+	
 	/**
 	* @var WiseChatUsersDAO
 	*/
 	private $usersDAO;
 	
 	/**
-	* @var array
+	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 		$this->usersDAO = new WiseChatUsersDAO();
 	}
 	
 	/**
 	* Returns rendered message.
 	*
-	* @param array $message Message details
+	* @param object $message Message details
 	*
 	* @return string HTML source
 	*/
 	public function getRenderedMessage($message) {
-		$addDate = '';
-		if (date('Y-m-d', $message->time) != date('Y-m-d')) {
-			$addDate = date('Y-m-d', $message->time).' ';
+		$formated = $this->getRenderedMessageDateAndTime($message);
+		$formated .= $this->getRenderedUserName($message);
+		$formated .= $this->getRenderedMessageContent($message);
+		
+		$messageClasses = array('wcMessage');
+		if ($this->usersDAO->getWpUserByDisplayName($message->user) !== null) {
+			$messageClasses[] = 'wcWpMessage';
 		}
-		$formated = '<span class="wcMessageTime">'.$addDate.date('H:i', $message->time).'</span> ';
-		
-		$userNameFormated = $message->user;
-		if ($userNameFormated == $this->usersDAO->getUserName()) {
-			$userNameFormated = "<strong>{$userNameFormated}</strong>";
+		if ($message->user == $this->usersDAO->getUserName()) {
+			$messageClasses[] = 'wcCurrentUserMessage';
 		}
-		$formated .= '<span class="wcMessageUser">'.$userNameFormated.'</span>: ';
 		
-		$formated .= htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8');
+		return '<div class="'.implode(' ', $messageClasses).'">'.$formated.'</div>';
+	}
+	
+	/**
+	* Returns rendered date and time (UTC) for given message.
+	*
+	* @param object $message Message details
+	*
+	* @return string HTML source
+	*/
+	private function getRenderedMessageDateAndTime($message) {
+		$utcDateAndTime = gmdate('c', $message->time);
 		
-		// mark WP user:
+		return sprintf('<span class="wcMessageTime" data-utc="%s"></span> ', $utcDateAndTime, $utcDateAndTime);
+	}
+	
+	/**
+	* Returns rendered user name for given message.
+	*
+	* @param object $message Message details
+	*
+	* @return string HTML source
+	*/
+	private function getRenderedUserName($message) {
 		$wpUser = $this->usersDAO->getWpUserByDisplayName($message->user);
-		if ($wpUser !== null) {
-			$formated = '<span class="wcWpMessage">'.$formated.'</span>';
+		$formatedUserName = $message->user;
+		
+		if ($wpUser !== null && $this->options->isOptionEnabled('link_wp_user_name')) {
+			$authorURL = get_author_posts_url($wpUser->ID, $message->user);
+			$formatedUserName = "<a href='{$authorURL}'>$formatedUserName</a>";
 		}
 		
-		return $formated;
+		return '<span class="wcMessageUser">'.$formatedUserName.'</span>: ';
+	}
+	
+	/**
+	* Returns rendered message content.
+	*
+	* @param object $message Message details
+	*
+	* @return string HTML source
+	*/
+	private function getRenderedMessageContent($message) {
+		$formatedMessageContent = htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8');
+		if ($this->options->isOptionEnabled('allow_post_links')) {
+			$formatedMessageContent = $this->detectAndConvertURLs($formatedMessageContent);
+		}
+		
+		return $formatedMessageContent;
+	}
+	
+	/**
+	* Detects an URL in the given text and replaces it with a hyperlink.
+	*
+	* @param string $text
+	*
+	* @return string
+	*/
+	private function detectAndConvertURLs($text) {
+		if (preg_match(self::URL_REGEXP, $text, $matches)) {
+			$detectedURL = $matches[0];
+			$url = $detectedURL;
+			if (!preg_match(self::URL_PROTOCOLS_REGEXP, $detectedURL)) {
+				$url = "http://".$detectedURL;
+			}
+			
+			return str_replace($detectedURL, "<a href='".$url."' target='_blank' rel='nofollow'>".urldecode($detectedURL)."</a> ", $text);
+		}
+		
+		return $text;
 	}
 	
 	/**
@@ -66,17 +130,17 @@ class WiseChatRenderer {
 		$containerId = "#$containerId";
 		$styles = array();
 		
-		if (!empty($this->options['text_color_logged_user'])) {
-			$styles["$containerId .wcWpMessage"][] = "color: ".$this->options['text_color_logged_user'].";";
+		if (strlen($this->options->getOption('text_color_logged_user')) > 0) {
+			$styles["$containerId .wcWpMessage, $containerId .wcWpMessage a"][] = "color: ".$this->options->getOption('text_color_logged_user').";";
 		}
-		if (!empty($this->options['background_color'])) {
-			$styles["$containerId .wcMessages"][] = "background-color: ".$this->options['background_color'].";";
+		if (strlen($this->options->getOption('background_color')) > 0) {
+			$styles["$containerId .wcMessages"][] = "background-color: ".$this->options->getOption('background_color').";";
 		}
-		if (!empty($this->options['background_color_input'])) {
-			$styles["$containerId .wcInput"][] = "background-color: ".$this->options['background_color_input'].";";
+		if (strlen($this->options->getOption('background_color_input')) > 0) {
+			$styles["$containerId .wcInput"][] = "background-color: ".$this->options->getOption('background_color_input').";";
 		}
-		if (!empty($this->options['text_color'])) {
-			$styles["$containerId .wcInput, $containerId .wcMessages, $containerId .wcCurrentUserName"][] = "color: ".$this->options['text_color'].";";
+		if (strlen($this->options->getOption('text_color')) > 0) {
+			$styles["$containerId .wcInput, $containerId .wcMessages, $containerId .wcCurrentUserName"][] = "color: ".$this->options->getOption('text_color').";";
 		}
 		
 		$html = '<style type="text/css">';

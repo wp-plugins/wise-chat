@@ -8,12 +8,12 @@
  */
 class WiseChatBansDAO {
 	/**
-	* @var array Wise Chat options
+	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 	}
 	
 	/**

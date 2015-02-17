@@ -18,12 +18,12 @@ abstract class WiseChatAbstractTab {
 	protected $usersDAO;
 	
 	/**
-	* @var array
+	* @var WiseChatOptions
 	*/
 	protected $options;
 	
-	public function __construct($options) {
-		$this->options = $options;
+	public function __construct() {
+		$this->options = WiseChatOptions::getInstance();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 	}
@@ -37,6 +37,17 @@ abstract class WiseChatAbstractTab {
 	*/
 	protected function addMessage($message) {
 		$_SESSION[WiseChatSettings::SESSION_MESSAGE_KEY] = $message;
+	}
+	
+	/**
+	* Shows error message. 
+	*
+	* @param string $message
+	*
+	* @return null
+	*/
+	protected function addErrorMessage($message) {
+		$_SESSION[WiseChatSettings::SESSION_MESSAGE_ERROR_KEY] = $message;
 	}
 	
 	/**
@@ -60,5 +71,70 @@ abstract class WiseChatAbstractTab {
 	*
 	* @return null
 	*/
-	public abstract function sanitizeOptionValue($inputValue);
+	public function sanitizeOptionValue($inputValue) {
+		$newInputValue = array();
+		
+		foreach ($this->getFields() as $field) {
+			$id = $field[0];
+			$type = $field[3];
+			
+			switch ($type) {
+				case 'boolean':
+					$newInputValue[$id] = isset($inputValue[$id]) && $inputValue[$id] == '1' ? 1 : 0;
+					break;
+				case 'integer':
+					if (isset($inputValue[$id])) {
+						$newInputValue[$id] = absint($inputValue[$id]);
+					}
+					break;
+				case 'string':
+					if (isset($inputValue[$id])) {
+						$newInputValue[$id] = sanitize_text_field($inputValue[$id]);
+					}
+					break;
+			}
+		}
+		
+		return $newInputValue;
+	}
+	
+	/**
+	* Callback method for displaying plain text field with a hint. Default value would be used when the property was not found.
+	*
+	* @param array $args Array containing keys: id, name and hint
+	*
+	* @return null
+	*/
+	public function stringFieldCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+	
+		printf(
+			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" /><p class="description">%s</p>',
+			$id, $id,
+			$this->options->getEncodedOption($id, $defaultValue),
+			$hint
+		);
+	}
+	
+	/**
+	* Callback method for displaying boolean field with a hint. Default value would be used when the property was not found.
+	*
+	* @param array $args Array containing keys: id, name and hint
+	*
+	* @return null
+	*/
+	public function booleanFieldCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+	
+		printf(
+			'<input type="checkbox" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="1" %s /><p class="description">%s</p>',
+			$id, $id, $this->options->isOptionEnabled($id, $defaultValue == 1) ? ' checked="1" ' : '', $hint
+		);
+	}
 }

@@ -24,7 +24,7 @@ class WiseChatBansCommand extends WiseChatAbstractCommand {
 			
 			$this->addMessage('Currently banned IPs: '.(count($bans) > 0 ? implode(', ', $bans) : ' empty list'));
 		} else {
-			$this->addMessage('No bans has been added');
+			$this->addMessage('No bans have been added');
 		}
 	}
 }

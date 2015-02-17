@@ -13,6 +13,10 @@ require_once(dirname(__FILE__).'/WiseChatRenderer.php');
  */
 class WiseChat {
 	private $baseDir;
+	
+	/**
+	* @var WiseChatOptions
+	*/
 	private $options;
 	
 	/**
@@ -37,7 +41,7 @@ class WiseChat {
 	
 	public function __construct($baseDir) {
 		$this->baseDir = $baseDir;
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
@@ -54,6 +58,9 @@ class WiseChat {
 	}
 	
 	public function enqueueScripts() {
+		wp_enqueue_script('wise_chat_messages_history',  $this->baseDir.'js/utils/messages_history.js', array());
+		wp_enqueue_script('wise_chat_messages',  $this->baseDir.'js/ui/messages.js', array());
+		wp_enqueue_script('wise_chat_settings',  $this->baseDir.'js/ui/settings.js', array());
 		wp_enqueue_script('wise_chat_core',  $this->baseDir.'js/wise_chat.js', array());
 		wp_enqueue_style('wise_chat_core', $this->baseDir.'css/wise_chat.css');
 	}
@@ -70,12 +77,16 @@ class WiseChat {
 			'channel' => 'global',
 		), $atts));
 		
-		$this->options = array_merge($this->options, $atts);
+		$this->options->replaceOptions($atts);
    
 		return $this->getRenderedChat($channel);;
 	}
 	
 	private function getRenderedChat($channel = null) {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			return sprintf("<div class='wcAccessDenied'>%s</div>", $this->options->getOption('message_error_4', 'Only logged in users are allowed to enter the chat'));
+		}
+		
 		$outString = '';
 
 		if ($channel === null || $channel === '') {
@@ -93,18 +104,23 @@ class WiseChat {
 			}
 				
 			$messagesRendering .= $this->renderer->getRenderedMessage($message);
-			$messagesRendering .= "<br />";
 			$lastId = $message->id;
 		}
 		
-		$hintMessage = str_replace("'", '', $this->options['hint_message']);
+		$hintMessage = $this->options->getEncodedOption('hint_message');
+		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
 		
 		$customizationsPanel = $this->getCustomizationsPanel();
 		$userNamePanel = $this->getCurrentUserNamePanel();
-		$outString .= "<div id='$chatId' class='wcContainer'>
+		$containerClasses = $this->getContainerClasses();
+		$submitButton = $this->getSubmitButton();
+		$outString .= "<div id='$chatId' class='$containerClasses'>
 				<div class='wcMessages'>{$messagesRendering}</div>
 				$userNamePanel
-				<input class='wcInput' type='text' maxlength='{$this->options['message_max_length']}' placeholder='$hintMessage' />
+				$submitButton
+				<div class='wcInputContainer'>
+					<input class='wcInput' type='text' maxlength='{$messageMaxLength}' placeholder='$hintMessage' />
+				</div>
 				$customizationsPanel
 			</div>
 		";
@@ -127,7 +143,7 @@ class WiseChat {
 	
 	private function getCurrentUserNamePanel() {
 		$html = "";
-		$showUserName = isset($this->options['show_user_name']) && $this->options['show_user_name'] == '1' && !is_user_logged_in();
+		$showUserName = $this->options->isOptionEnabled('show_user_name') && !$this->usersDAO->isWpUserLogged();
 		$currentUserName = $this->usersDAO->getUserName();
 		
 		if ($showUserName) {
@@ -137,21 +153,51 @@ class WiseChat {
 		return $html;
 	}
 	
+	private function getSubmitButton() {
+		if ($this->options->isOptionEnabled('show_message_submit_button')) {
+			return sprintf("<input type='button' class='wcSubmitButton' value='%s' />", $this->options->getEncodedOption('message_submit_button_caption', 'Send'));
+		}
+		
+		return '';
+	}
+	
 	private function getCustomizationsPanel() {
 		$html = '';
-		$allowChangeUserName = isset($this->options['allow_change_user_name']) && $this->options['allow_change_user_name'] == '1' && !is_user_logged_in();
-		$currentUserName = $this->usersDAO->getUserName();
+	
+		$allowChangeUserName = $this->options->isOptionEnabled('allow_change_user_name') && !$this->usersDAO->isWpUserLogged();
+		$isAnyCustomizationEnabled = $allowChangeUserName;
 		
-		if ($allowChangeUserName === true) {
-			$html .= "<div class='wcCustomizations'>
-					<a href='javascript://' class='wcCustomizeButton'>Customize</a>
-					<div class='wcCustomizationsPanel' style='display:none;'>
-						<label>Name: <input class='wcUserName' type='text' value='$currentUserName' /></label><input class='wcUserNameApprove' type='button' value='OK' />
-					</div>
-				</div>
-			";
+		if ($isAnyCustomizationEnabled) {
+			$html .= "<div class='wcCustomizations'>";
+			$html .= sprintf(
+						"<a href='javascript://' class='wcCustomizeButton'>%s</a>",
+						$this->options->getEncodedOption('message_customize', 'Customize')
+					);
+			
+			$html .= "<div class='wcCustomizationsPanel' style='display:none;'>";
+			if ($allowChangeUserName) {
+				$currentUserName = $this->usersDAO->getUserName();
+				$html .= sprintf(
+							"<label>%s: <input class='wcUserName' type='text' value='%s' /></label>",
+							$this->options->getEncodedOption('message_name', 'Name'), htmlentities($currentUserName)
+						);
+				$html .= sprintf(
+							"<input class='wcUserNameApprove' type='button' value='%s' />", 
+							$this->options->getEncodedOption('message_save', 'Save')
+						);
+			}
+			$html .= "</div></div>";
 		}
 		
 		return $html;
+	}
+	
+	private function getContainerClasses() {
+		$classes = array('wcContainer');
+		if ($this->options->isOptionEnabled('show_message_submit_button')) {
+			$classes[] = 'wcSubmitButtonIncluded';
+		}
+		
+		return implode(' ', $classes);
 	}
 }

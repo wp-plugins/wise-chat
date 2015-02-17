@@ -6,16 +6,38 @@
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 
-.wcMessages {
-	width: 100%; height: 200px; overflow: auto; border: 1px solid #dfdfdf; padding: 5px; background-color: #fff; margin: 5px 0px;
+/* Commons: */
+.wcClear {
+	clear: both; line-height: 0.1%; font-size: 0.1%; height: 0.1%;
 }
 
-.wcContainer input.wcInput {
+.wcContainer {
 	width: 100%;
+}
+
+/* Messages list: */
+.wcMessages {
+	width: 100%; height: 200px; overflow: auto; border: 1px solid #dfdfdf; background-color: #fff; margin: 5px 0px; padding: 0px 5px;
+}
+
+.wcSubmitButtonIncluded .wcMessage {
+	margin: 0px 5px;
+}
+
+.wcSubmitButtonIncluded .wcMessages {
+	padding: 0px;
 }
 
 .wcErrorMessage {
 	color: #ff0000;
+}
+
+.wcCurrentUserMessage .wcMessageUser {
+	font-weight: bold;
+}
+
+.wcContainer input.wcInput {
+	width: 100%;
 }
 
 .wcCustomizations a {
@@ -24,4 +46,21 @@
 
 .wcUserName {
 	margin-right: 5px;
+}
+
+.wcSubmitButtonIncluded .wcCurrentUserName {
+	display: block;
+}
+
+.wcSubmitButtonIncluded .wcInputContainer {
+	overflow: hidden; padding-right: 15px; 
+}
+
+.wcSubmitButtonIncluded input.wcInput {
+	width: 100%;
+}
+
+.wcSubmitButtonIncluded input.wcSubmitButton {
+	float: right;
+    margin-left: 1px;
 }

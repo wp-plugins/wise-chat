@@ -10,8 +10,8 @@ class WiseChatBansTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
-			array('bans', 'Current Bans', 'bansCallback'),
-			array('ban_add', 'New Ban', 'banAddCallback'),
+			array('bans', 'Current Bans', 'bansCallback', 'void'),
+			array('ban_add', 'New Ban', 'banAddCallback', 'void'),
 		);
 	}
 	
@@ -34,6 +34,13 @@ class WiseChatBansTab extends WiseChatAbstractTab {
 	public function addBanAction() {
 		$newBanIP = $_GET['newBanIP'];
 		$newBanDuration = $_GET['newBanDuration'];
+		
+		$ban = $this->bansDAO->getBanByIp($newBanIP);
+		if ($ban !== null) {
+			$this->addErrorMessage('This IP is already banned');
+			return;
+		}
+		
 		if (strlen($newBanIP) > 0) {
 			$duration = $this->bansDAO->getDurationFromString($newBanDuration);
 			
@@ -76,11 +83,5 @@ class WiseChatBansTab extends WiseChatAbstractTab {
 		$dateSecond = new DateTime("@$seconds");
 		
 		return $dateFirst->diff($dateSecond)->format('%a days, %h hours, %i minutes and %s seconds');
-	}
-	
-	public function sanitizeOptionValue($input) {
-		$new_input = array();
-
-		return $new_input;
 	}
 }

@@ -32,12 +32,12 @@ class WiseChatEndpoints {
 	private $renderer;
 	
 	/**
-	* @var array
+	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->bansDAO = new WiseChatBansDAO();
@@ -50,6 +50,10 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function settingsEndpoint() {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			die('{}');
+		}
+		
 		$_POST = stripslashes_deep($_POST);
     
 		$response = array();
@@ -68,6 +72,10 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messagesEndpoint() {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			die('{}');
+		}
+		
 		$lastId = intval($this->getGetParam('lastId', 0));
 		$channel = $this->getGetParam('channel');
 		
@@ -101,6 +109,10 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messageEndpoint() {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			die('{}');
+		}
+		
 		$_POST = stripslashes_deep($_POST);
     
 		$response = array();
@@ -109,7 +121,7 @@ class WiseChatEndpoints {
 		
 		$ban = $this->bansDAO->getBanByIp($_SERVER['REMOTE_ADDR']);
 		if ($ban != null) {
-			$response['error'] = 'You were banned from posting messages';
+			$response['error'] = $this->options->getOption('message_error_3', 'You were banned from posting messages');
 		} else {
 			if (strlen($message) > 0 && strlen($channel) > 0) {
 				$wiseChatCommandsResolver = new WiseChatCommandsResolver();
@@ -129,8 +141,7 @@ class WiseChatEndpoints {
 	
 	private function changeUserName($userName) {
 		$response = array();
-		$allowChangeUserName = isset($this->options['allow_change_user_name']) && $this->options['allow_change_user_name'] == '1';
-		if (!$allowChangeUserName) {
+		if (!$this->options->isOptionEnabled('allow_change_user_name')) {
 			$response['error'] = 'Unsupported operation';
 			return $response;
 		}
@@ -142,13 +153,13 @@ class WiseChatEndpoints {
 		}
 		
 		if (!preg_match('/^[a-zA-Z0-9\-_ ]+$/', $userName)) {
-			$response['error'] = 'Only letters, number, spaces, hyphens and underscores are allowed';
+			$response['error'] = $this->options->getOption('message_error_1', 'Only letters, number, spaces, hyphens and underscores are allowed');
 			return $response;
 		}
 		
 		$wpUser = $this->usersDAO->getWpUserByDisplayName($userName);
 		if ($wpUser !== null) {
-			$response['error'] = 'This name is already occupied';
+			$response['error'] = $this->options->getOption('message_error_2', 'This name is already occupied');
 			return $response;
 		}
 		
@@ -159,7 +170,7 @@ class WiseChatEndpoints {
 		$messages = $this->messagesDAO->getLastMessagesByUserName($newUserName);
 		if (count($messages) > 0) {
 			$this->usersDAO->setUserName($oldUserName);
-			$response['error'] = 'This name is already occupied';
+			$response['error'] = $this->options->getOption('message_error_2', 'This name is already occupied');
 		} else {
 			$response['value'] = $newUserName;
 			$response['result'] = 'OK';

@@ -12,12 +12,12 @@ class WiseChatUsersDAO {
 	const USER_AUTO_NAME_SESSION_KEY = 'wise_chat_user_name_auto';
 	
 	/**
-	* @var array Wise Chat options
+	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 	}
 	
 	/**
@@ -30,6 +30,19 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
+	* Retuns whether there is an user logged in.
+	*
+	* @return boolean
+	*/
+	public function isWpUserLogged() {
+		if (is_user_logged_in()) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
 	* Sets name for the current user of the chat.
 	*
 	* @return null
@@ -37,7 +50,7 @@ class WiseChatUsersDAO {
 	public function setUserName($userName) {
 		$this->startSession();
 		
-		$badWordsFilter = $this->options['filter_bad_words'] == '1';
+		$badWordsFilter = $this->options->isOptionEnabled('filter_bad_words');
 		$filteredUserName = $badWordsFilter ? WiseChatFilter::filter($userName) : $userName;
 		
 		$_SESSION[self::USER_NAME_SESSION_KEY] = $filteredUserName;
@@ -60,23 +73,31 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Retuns WP user by display_name field.
+	* Retuns WP user by display_name field. Result is cached in static field.
 	*
 	* @param string $displayName
 	*
 	* @return WP_User|null
 	*/
 	public function getWpUserByDisplayName($displayName) {
+		static $wpUsersCache = array();
+		
+		if (array_key_exists($displayName, $wpUsersCache)) {
+			return $wpUsersCache[$displayName];
+		}
+		
+		$userObject = null;
 		$args = array(
 			'search' => $displayName,
 			'search_fields' => array('display_name')
 		);
 		$users = new WP_User_Query($args);
 		if (count($users->results) > 0) {
-			return $users->results[0];
+			$userObject = $users->results[0];
 		}
+		$wpUsersCache[$displayName] = $userObject;
 		
-		return null;
+		return $userObject;
 	}
 	
 	/**
@@ -105,7 +126,7 @@ class WiseChatUsersDAO {
 			$lastNameId = intval(get_option(self::LAST_NAME_ID_OPTION, 1)) + 1;
 			update_option(self::LAST_NAME_ID_OPTION, $lastNameId);
 			
-			$this->setUserName($this->options['user_name_prefix'].get_option(self::LAST_NAME_ID_OPTION));
+			$this->setUserName($this->options->getOption('user_name_prefix', 'Anonymous').get_option(self::LAST_NAME_ID_OPTION));
 		}
 	}
 	

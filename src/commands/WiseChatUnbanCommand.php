@@ -21,10 +21,10 @@ class WiseChatUnbanCommand extends WiseChatAbstractCommand {
 				$this->bansDAO->deleteByIp($ban->ip);
 				$this->addMessage("Ban on IP ".$ban->ip." has been removed");
 			} else {
-				$this->addMessage('IP was not found');
+				$this->addMessage('IP address was not found');
 			}
 		} else {
-			$this->addMessage('Please specify the IP');
+			$this->addMessage('Please specify the IP address');
 		}
 	}
 }

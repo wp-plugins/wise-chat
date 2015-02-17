@@ -78,7 +78,6 @@ class WiseChatInstaller {
 		$sql = "DROP TABLE IF EXISTS {$tableName};";
 		$wpdb->query($sql);
 		
-		delete_option(WiseChatSettings::OPTIONS_NAME);
-		delete_option(WiseChatUsersDAO::LAST_NAME_ID_OPTION);
+		WiseChatOptions::getInstance()->dropAllOptions();
 	}
 }

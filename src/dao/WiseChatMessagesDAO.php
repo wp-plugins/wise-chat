@@ -13,12 +13,12 @@ class WiseChatMessagesDAO {
 	private $usersDAO;
 	
 	/**
-	* @var array Wise Chat options
+	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = WiseChatOptions::getInstance();
 		$this->usersDAO = new WiseChatUsersDAO();
 	}
 	
@@ -40,11 +40,11 @@ class WiseChatMessagesDAO {
 			return;
 		}
 		
-		$maxLength = intval($this->options['message_max_length']);
-		$badWordsFilter = $this->options['filter_bad_words'] == '1' && $isAdmin === false;
+		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
+		$badWordsFilter = $this->options->isOptionEnabled('filter_bad_words') && $isAdmin === false;
 		
 		$filteredMessage = $badWordsFilter ? WiseChatFilter::filter($message) : $message;
-		$filteredMessage = substr($filteredMessage, 0, $maxLength);
+		$filteredMessage = substr($filteredMessage, 0, $messageMaxLength);
 		
 		$table = WiseChatInstaller::getMessagesTable();
 		$wpdb->insert($table,
@@ -70,7 +70,7 @@ class WiseChatMessagesDAO {
 	public function getMessages($channel, $fromId = null) {
 		global $wpdb;
 		
-		$limit = intval($this->options['messages_limit']);
+		$limit = $this->options->getIntegerOption('messages_limit', 100);
 		$channel = addslashes($channel);
 		$table = WiseChatInstaller::getMessagesTable();
 		

@@ -16,11 +16,18 @@ class WiseChatSettings {
 	const PAGE_TITLE = 'Settings Admin';
 	const MENU_TITLE = 'Wise Chat Settings';
 	const SESSION_MESSAGE_KEY = 'wc_plugin_data_messages_update';
+	const SESSION_MESSAGE_ERROR_KEY = 'wc_plugin_data_messages_error';
 	
 	/**
 	* @var array Tabs definition
 	*/
-	private $tabs = array('wise-chat-general' => 'General', 'wise-chat-appearance' => 'Appearance', 'wise-chat-bans' => 'Bans');
+	private $tabs = array(
+		'wise-chat-general' => 'General', 
+		'wise-chat-messages' => 'Messages',
+		'wise-chat-appearance' => 'Appearance',
+		'wise-chat-bans' => 'Bans',
+		'wise-chat-localization' => 'Localization',
+	);
 	
 	/**
 	* Initializes settings page link in admin menu.
@@ -53,7 +60,11 @@ class WiseChatSettings {
 			
 			$fields = $tabObject->getFields();
 			foreach ($fields as $field) {
-				add_settings_field($field[0], $field[1], array($tabObject, $field[2]), $key, $sectionKey);
+				$args = array('id' => $field[0]);
+				$args['name'] = array_key_exists(1, $field) ? $field[1] : '';
+				$args['hint'] = array_key_exists(4, $field) ? $field[4] : '';
+				
+				add_settings_field($field[0], $field[1], array($tabObject, $field[2]), $key, $sectionKey, $args);
 			}
 		}
 	}
@@ -144,6 +155,7 @@ class WiseChatSettings {
 			echo '<script type="text/javascript">location.replace("' . $redirURL . '");</script>';
 		} else {
 			$this->showUpdatedMessage();
+			$this->showErrorMessage();
 		}
 	}
 	
@@ -183,7 +195,7 @@ class WiseChatSettings {
 		
 		require_once(dirname(__FILE__)."/admin/{$tabClassName}.php");
 		
-		$tabObject = new $tabClassName(get_option(self::OPTIONS_NAME));
+		$tabObject = new $tabClassName();
 		$cache[$tabKey] = $tabObject;
 		
 		return $tabObject;
@@ -198,6 +210,18 @@ class WiseChatSettings {
 		if (isset($_SESSION[self::SESSION_MESSAGE_KEY])) {
 			add_settings_error(md5($_SESSION[self::SESSION_MESSAGE_KEY]), esc_attr('settings_updated'), $_SESSION[self::SESSION_MESSAGE_KEY], 'updated');
 			unset($_SESSION[self::SESSION_MESSAGE_KEY]);
+		}
+	}
+	
+	/**
+	* Shows a message stored in session.
+	*
+	* @return null
+	*/
+	private function showErrorMessage() {
+		if (isset($_SESSION[self::SESSION_MESSAGE_ERROR_KEY])) {
+			add_settings_error(md5($_SESSION[self::SESSION_MESSAGE_ERROR_KEY]), esc_attr('settings_updated'), $_SESSION[self::SESSION_MESSAGE_ERROR_KEY], 'error');
+			unset($_SESSION[self::SESSION_MESSAGE_ERROR_KEY]);
 		}
 	}
 }
