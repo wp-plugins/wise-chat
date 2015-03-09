@@ -1,9 +1,6 @@
 <?php
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-require_once(dirname(__FILE__).'/../src/WiseChatFilter.php');
+require_once('src/rendering/filters/WiseChatFilter.php');
 
 class WiseChatFilterTest extends PHPUnit_Framework_TestCase
 {

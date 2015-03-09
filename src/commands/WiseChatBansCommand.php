@@ -3,31 +3,34 @@
 require_once "WiseChatAbstractCommand.php";
 
 /**
- * Wise Chat /bans command.
+ * Wise Chat command: /bans
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
  */
 class WiseChatBansCommand extends WiseChatAbstractCommand {
 	public function execute() {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getBansTable();
-		$currentBans = $wpdb->get_results("SELECT * FROM {$table} LIMIT 10000;");
+		$currentBans = $this->bansDAO->getAll();
 		
 		if (is_array($currentBans) && count($currentBans) > 0) {
 			$bans = array();
 			foreach ($currentBans as $ban) {
 				$eta = $ban->time - time();
 				if ($eta > 0) {
-					$bans[] = $ban->ip.' ('.$eta.'s)';
+					$bans[] = $ban->ip.' ('.$this->getTimeSummary($eta).')';
 				}
 			}
 			
-			$this->addMessage('Currently banned IPs: '.(count($bans) > 0 ? implode(', ', $bans) : ' empty list'));
+			$this->addMessage('Currently banned IPs and remaining time: '.(count($bans) > 0 ? implode(', ', $bans) : ' empty list'));
 		} else {
-			$this->addMessage('No bans has been added');
+			$this->addMessage('No bans have been added yet');
 		}
+	}
+	
+	private function getTimeSummary($seconds) {
+		$dateFirst = new DateTime("@0");
+		$dateSecond = new DateTime("@$seconds");
+		
+		return $dateFirst->diff($dateSecond)->format('%a days, %h hours, %i minutes and %s seconds');
 	}
 }
