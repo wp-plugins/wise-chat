@@ -36,7 +36,7 @@
 	font-weight: bold;
 }
 
-.wcContainer input.wcInput {
+.wcContainer input.wcInput, .wcContainer textarea.wcInput {
 	width: 100%;
 }
 
@@ -56,11 +56,15 @@
 	overflow: hidden; padding-right: 15px; 
 }
 
-.wcSubmitButtonIncluded input.wcInput {
+.wcSubmitButtonIncluded input.wcInput, .wcSubmitButtonIncluded textarea.wcInput {
 	width: 100%;
 }
 
 .wcSubmitButtonIncluded input.wcSubmitButton {
 	float: right;
     margin-left: 1px;
+}
+
+.wcMessage .wcEmoticon {
+	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 4px;
 }

@@ -7,7 +7,7 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChatFilter {
-	const BAD_WORDS_FILE = '/../data/bad_words.txt';
+	const BAD_WORDS_FILE = '/../../../data/bad_words.txt';
 	public static $words = null;
 	
 	public static function filter($text) {

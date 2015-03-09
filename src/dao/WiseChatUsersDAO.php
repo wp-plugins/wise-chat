@@ -10,6 +10,9 @@ class WiseChatUsersDAO {
 	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
 	const USER_NAME_SESSION_KEY = 'wise_chat_user_name';
 	const USER_AUTO_NAME_SESSION_KEY = 'wise_chat_user_name_auto';
+	const ACTIVITY_TIME_SESSION_KEY = 'wise_chat_activity_time';
+	const ACTIVITY_TIME_THRESHOLD = 120;
+	const ABUSES_COUNTER_SESSION_KEY = 'wise_chat_ban_detector_counter';
 	
 	/**
 	* @var WiseChatOptions
@@ -152,6 +155,54 @@ class WiseChatUsersDAO {
 				$this->setUserName($this->getOriginalUserName());
 			}
 		}
+	}
+	
+	/**
+	* Determines whether current user's activity should be signaled.
+	*
+	* @param string $key Additional key for grouping
+	*
+	* @return boolean
+	*/
+	public function shouldSignalActivity($key) {
+		$sessionKey = self::ACTIVITY_TIME_SESSION_KEY.md5($key);
+		if (!array_key_exists($sessionKey, $_SESSION)) {
+			$_SESSION[$sessionKey] = time();
+			return true;
+		}
+		$diff = time() - $_SESSION[$sessionKey];
+		if ($diff > self::ACTIVITY_TIME_THRESHOLD) {
+			$_SESSION[$sessionKey] = time();
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
+	* Increments and returns abuses detector counter.
+	* The counter is stored in user's session.
+	*
+	* @return integer
+	*/
+	public function incrementAndGetAbusesCounter() {
+		$key = self::ABUSES_COUNTER_SESSION_KEY;
+		if (!array_key_exists($key, $_SESSION)) {
+			$_SESSION[$key] = 1;
+		} else {
+			$_SESSION[$key] += 1;
+		}
+		
+		return $_SESSION[$key];
+	}
+	
+	/**
+	* Clears abuses detector counter. The counter is stored in user's session.
+	*
+	* @return null
+	*/
+	public function clearAbusesCounter() {
+		$_SESSION[self::ABUSES_COUNTER_SESSION_KEY] = 0;
 	}
 	
 	/**

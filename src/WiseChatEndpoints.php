@@ -50,7 +50,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function settingsEndpoint() {
-		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+		if ($this->isChatDisabledForAnonymous()) {
 			die('{}');
 		}
 		
@@ -72,7 +72,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messagesEndpoint() {
-		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+		if ($this->isChatDisabledForAnonymous()) {
 			die('{}');
 		}
 		
@@ -97,7 +97,11 @@ class WiseChatEndpoints {
 			}
 		}
     
+		// maintenance:
 		$this->bansDAO->deleteOldBans();
+		if (strlen($channel) > 0 && $this->usersDAO->shouldSignalActivity($channel)) {
+			$this->messagesDAO->addPingMessage($this->usersDAO->getUserName(), $channel);
+		}
     
 		echo json_encode($response);
 		die();
@@ -109,7 +113,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messageEndpoint() {
-		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+		if ($this->isChatDisabledForAnonymous()) {
 			die('{}');
 		}
 		
@@ -119,8 +123,7 @@ class WiseChatEndpoints {
 		$channel = trim($this->getPostParam('channel'));
 		$message = trim($this->getPostParam('message'));
 		
-		$ban = $this->bansDAO->getBanByIp($_SERVER['REMOTE_ADDR']);
-		if ($ban != null) {
+		if ($this->bansDAO->isIpBanned($_SERVER['REMOTE_ADDR'])) {
 			$response['error'] = $this->options->getOption('message_error_3', 'You were banned from posting messages');
 		} else {
 			if (strlen($message) > 0 && strlen($channel) > 0) {
@@ -185,5 +188,9 @@ class WiseChatEndpoints {
 	
 	private function getGetParam($name, $default = null) {
 		return array_key_exists($name, $_GET) ? $_GET[$name] : $default;
+	}
+	
+	private function isChatDisabledForAnonymous() {
+		return $this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged();
 	}
 }

@@ -1,14 +1,19 @@
 <?php
 
+require_once('WiseChatAbstractCommand.php');
+
 /**
  * Wise Chat commands resolver.
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
  */
 class WiseChatCommandsResolver {
-	const SYSTEM_USER_NAME = 'System';
+	
+	/**
+	* @var WiseChatUsersDAO
+	*/
+	private $usersDAO;
 	
 	/**
 	* @var WiseChatMessagesDAO
@@ -17,6 +22,7 @@ class WiseChatCommandsResolver {
 	
 	public function __construct() {
 		$this->messagesDAO = new WiseChatMessagesDAO();
+		$this->usersDAO = new WiseChatUsersDAO();
 	}
 
 	/**
@@ -30,8 +36,8 @@ class WiseChatCommandsResolver {
 	* @return boolean True if the message is processed and is not needed to be displayed
 	*/
 	public function resolve($user, $channel, $message) {
-		if ($this->isPossiblyCommand($message) && $this->isAdminLoggedIn()) {
-			// print typed command as admin message:
+		if ($this->isPotentialCommand($message) && $this->usersDAO->isWpUserAdminLogged()) {
+			// print typed command (visible only for admins):
 			$this->messagesDAO->addMessage($user, $channel, $message, true);
 		
 			// execute command:
@@ -39,7 +45,7 @@ class WiseChatCommandsResolver {
 			if ($resolver !== null) {
 				$resolver->execute();
 			} else {
-				$this->messagesDAO->addMessage(self::SYSTEM_USER_NAME, $channel, 'Command not found', true);
+				$this->messagesDAO->addMessage(WiseChatAbstractCommand::SYSTEM_USER_NAME, $channel, 'Command not found', true);
 			}
 		
 			return true;
@@ -49,21 +55,21 @@ class WiseChatCommandsResolver {
 	}
 	
 	/**
-	* Checks given message and returns command resolver.
+	* Tokenizes command and returns command resolver.
 	*
 	* @param string $channel Name of the channel
-	* @param string $message Content of the possible command
+	* @param string $command The command
 	*
 	* @return WiseChatAbstractCommand
 	*/
-	private function getCommandResolver($channel, $message) {
-		$commandClassName = $this->getCommandClassNameFromMessage($message);
+	private function getCommandResolver($channel, $command) {
+		$commandClassName = $this->getClassNameFromCommand($command);
 		$commandFile = $this->getCommandClassFileByClassName($commandClassName);
 		
 		if (file_exists($commandFile)) {
 			require_once($commandFile);
 			
-			$tokens = $this->getTokenizedMessage($message);
+			$tokens = $this->getTokenizedCommand($command);
 			array_shift($tokens);
 			
 			return new $commandClassName($channel, $tokens);
@@ -72,26 +78,29 @@ class WiseChatCommandsResolver {
 		return null;
 	}
 	
-	private function isPossiblyCommand($message) {
-		return strlen($message) > 0 && strpos($message, '/') === 0;
+	/**
+	* Checks whether a text can be recognized as a command.
+	*
+	* @param string $text The potential command
+	*
+	* @return boolean
+	*/
+	private function isPotentialCommand($text) {
+		return strlen($text) > 0 && strpos($text, '/') === 0;
 	}
 	
-	private function isAdminLoggedIn() {
-		return current_user_can('manage_options');
+	private function getTokenizedCommand($command) {
+		return preg_split('/\s+/', trim(trim($command), '/'));
 	}
 	
-	private function getTokenizedMessage($message) {
-		return preg_split('/\s+/', trim(trim($message), '/'));
-	}
-	
-	private function getCommandClassNameFromMessage($message) {
-		$tokens = $this->getTokenizedMessage($message);
+	private function getClassNameFromCommand($command) {
+		$tokens = $this->getTokenizedCommand($command);
 		$commandName = str_replace('/', '', ucfirst($tokens[0]));
 		
 		return "WiseChat{$commandName}Command";
 	}
 	
 	private function getCommandClassFileByClassName($className) {
-		return dirname(__FILE__)."/commands/{$className}.php";
+		return dirname(__FILE__)."/{$className}.php";
 	}
 }

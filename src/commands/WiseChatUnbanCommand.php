@@ -3,11 +3,10 @@
 require_once "WiseChatAbstractCommand.php";
 
 /**
- * Wise Chat /unban command.
+ * Wise Chat command: /unban
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
  */
 class WiseChatUnbanCommand extends WiseChatAbstractCommand {
 	
@@ -19,9 +18,9 @@ class WiseChatUnbanCommand extends WiseChatAbstractCommand {
 			
 			if ($ban !== null) {
 				$this->bansDAO->deleteByIp($ban->ip);
-				$this->addMessage("Ban on IP ".$ban->ip." has been removed");
+				$this->addMessage("Ban on IP address ".$ban->ip." has been removed");
 			} else {
-				$this->addMessage('IP address was not found');
+				$this->addMessage('There is no ban for this IP address');
 			}
 		} else {
 			$this->addMessage('Please specify the IP address');

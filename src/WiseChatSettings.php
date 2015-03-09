@@ -25,6 +25,7 @@ class WiseChatSettings {
 		'wise-chat-general' => 'General', 
 		'wise-chat-messages' => 'Messages',
 		'wise-chat-appearance' => 'Appearance',
+		'wise-chat-channels' => 'Channels',
 		'wise-chat-bans' => 'Bans',
 		'wise-chat-localization' => 'Localization',
 	);

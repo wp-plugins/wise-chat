@@ -18,6 +18,11 @@ abstract class WiseChatAbstractTab {
 	protected $usersDAO;
 	
 	/**
+	* @var WiseChatMessagesDAO
+	*/
+	protected $messagesDAO;
+	
+	/**
 	* @var WiseChatOptions
 	*/
 	protected $options;
@@ -26,6 +31,7 @@ abstract class WiseChatAbstractTab {
 		$this->options = WiseChatOptions::getInstance();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
+		$this->messagesDAO = new WiseChatMessagesDAO();
 	}
 	
 	/**
@@ -77,19 +83,20 @@ abstract class WiseChatAbstractTab {
 		foreach ($this->getFields() as $field) {
 			$id = $field[0];
 			$type = $field[3];
+			$value = $inputValue[$id];
 			
 			switch ($type) {
 				case 'boolean':
-					$newInputValue[$id] = isset($inputValue[$id]) && $inputValue[$id] == '1' ? 1 : 0;
+					$newInputValue[$id] = isset($inputValue[$id]) && $value == '1' ? 1 : 0;
 					break;
 				case 'integer':
 					if (isset($inputValue[$id])) {
-						$newInputValue[$id] = absint($inputValue[$id]);
+						$newInputValue[$id] = absint($value);
 					}
 					break;
 				case 'string':
 					if (isset($inputValue[$id])) {
-						$newInputValue[$id] = sanitize_text_field($inputValue[$id]);
+						$newInputValue[$id] = sanitize_text_field($value);
 					}
 					break;
 			}
@@ -113,6 +120,27 @@ abstract class WiseChatAbstractTab {
 	
 		printf(
 			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" /><p class="description">%s</p>',
+			$id, $id,
+			$this->options->getEncodedOption($id, $defaultValue),
+			$hint
+		);
+	}
+	
+	/**
+	* Callback method for displaying color selection text field with a hint. Default value would be used when the property was not found.
+	*
+	* @param array $args Array containing keys: id, name and hint
+	*
+	* @return null
+	*/
+	public function colorFieldCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+	
+		printf(
+			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" class="wc-color-picker" /><p class="description">%s</p>',
 			$id, $id,
 			$this->options->getEncodedOption($id, $defaultValue),
 			$hint

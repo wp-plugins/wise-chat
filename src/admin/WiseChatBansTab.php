@@ -12,13 +12,17 @@ class WiseChatBansTab extends WiseChatAbstractTab {
 		return array(
 			array('bans', 'Current Bans', 'bansCallback', 'void'),
 			array('ban_add', 'New Ban', 'banAddCallback', 'void'),
+			array('enable_autoban', 'Enable Auto-ban', 'booleanFieldCallback', 'boolean', 'Enables auto-ban feature which detects how many bad words are being used by an user and when the threshold is reached the user is banned from posting messages for 1 day'),
+			array('autoban_threshold', 'Auto-ban Threshold', 'stringFieldCallback', 'integer', 'Determines how many messages containing bad words should be posted by an user before the user gets auto-banned'),
 		);
 	}
 	
 	public function getDefaultValues() {
 		return array(
 			'bans' => null,
-			'ban_add' => null
+			'ban_add' => null,
+			'enable_autoban' => 0,
+			'autoban_threshold' => '3'
 		);
 	}
 	

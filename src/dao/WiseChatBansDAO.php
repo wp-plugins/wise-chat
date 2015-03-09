@@ -50,6 +50,17 @@ class WiseChatBansDAO {
 	}
 	
 	/**
+	* Checks whether given IP is banned.
+	*
+	* @param string $ip Given IP address
+	*
+	* @return boolean
+	*/
+	public function isIpBanned($ip) {
+		return $this->getBanByIp($ip) !== null;
+	}
+	
+	/**
 	* Returns all bans.
 	*
 	* @return array
@@ -111,10 +122,11 @@ class WiseChatBansDAO {
 	}
 	
 	/**
-	* Converts duration strin into seconds.
+	* Converts duration string into amount of seconds. 
+	* If the value cannot be determined the default value is returned. 
 	*
-	* @param string $durationString
-	* @param integer $defaultValue
+	* @param string $durationString Eg. 1h, 2d, 7m
+	* @param integer $defaultValue One hour
 	*
 	* @return integer
 	*/

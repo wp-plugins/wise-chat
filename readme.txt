@@ -4,11 +4,11 @@ Donate link: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 Tags: chat, plugin, ajax, javascript, shortcode, social, widget, responsive
 Requires at least: 3.6
 Tested up to: 4.1
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Just another chat plugin for WordPress. It requires no server, supports multiple channels, bad words filtering, bans and much more.
+Just another chat plugin for WordPress. It requires no server, supports multiple channels, bad words filtering, appearance settings, bans and more.
 
 == Description ==
 
@@ -19,17 +19,20 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * fully responsive and mobile ready
 * no server required
 * multiple channels (chat rooms) support
+* channels statistics (active users, published messages)
+* emoticons support
 * multiple chat instances on the same page
 * language localization for end-users
 * built-in bad words filter (supports English and Polish languages)
-* flexible cofiguration page (general settings, messages posting control, appearance, bans control and localization)
+* flexible cofiguration page (general settings, messages posting control, appearance, channels statistics, bans control and localization)
 * colors adjustments
 * blocking IP addresses from posting messages (bans)
+* auto-blocking IP addresses for abuses (auto-bans)
 * anonymous users (temporary user name with configurable prefix)
 * logged in users (WordPress user name)
-* access only for logged in users option
+* option to allow access for logged in users only
 * chat user settings (e.g. name changing)
-* recently typed messages history (in message input field)
+* messages history (recently published messages in input field)
 
 All settings are available on `Settings -> Wise Chat Settings` page. See screenshots for detailed features. 
 
@@ -126,6 +129,10 @@ Click on the message input field and use arrow keys (up and down) to scroll thro
 
 Go to Settings -> Wise Chat Settings page, select General tab and select "Only For Logged In Users" option.
 
+= How does auto-ban feature work? =
+
+There is a counter for each user. Everytime an user uses a bad word in a message the counter is incremented. If it reaches the threshold (default - 3 abuses) the user is banned for 1 day. 
+
 == Screenshots ==
 
 1. The chat after installation.
@@ -135,10 +142,19 @@ Go to Settings -> Wise Chat Settings page, select General tab and select "Only F
 5. General settings.
 6. Messages settings.
 7. Appearance adjustments.
-8. Bans control.
-9. Localizations for end-user.
+8. Channels statistics.
+9. Bans control.
+10. Localizations for end-user.
 
 == Changelog ==
+
+= 1.4 =
+* Configurable width and height of the chat window
+* Channels statistics on settings page, including message and active users counters
+* User name to link conversion template
+* Emoticons support
+* Auto-ban feature
+* Multiline messages support
 
 = 1.3 =
 * Messages history (using arrow keys) in input field

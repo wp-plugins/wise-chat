@@ -3,7 +3,8 @@
 require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatBansDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
-require_once(dirname(__FILE__).'/WiseChatRenderer.php');
+require_once(dirname(__FILE__).'/rendering/WiseChatRenderer.php');
+require_once(dirname(__FILE__).'/rendering/WiseChatCssRenderer.php');
 
 /**
  * Wise Chat core class.
@@ -12,6 +13,9 @@ require_once(dirname(__FILE__).'/WiseChatRenderer.php');
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChat {
+	/**
+	* @var string Plugin's base directory
+	*/
 	private $baseDir;
 	
 	/**
@@ -39,13 +43,20 @@ class WiseChat {
 	*/
 	private $renderer;
 	
+	/**
+	* @var WiseChatCssRenderer
+	*/
+	private $cssRenderer;
+	
 	public function __construct($baseDir) {
 		$this->baseDir = $baseDir;
 		$this->options = WiseChatOptions::getInstance();
+		$this->options->setBaseDir($baseDir);
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->renderer = new WiseChatRenderer();
+		$this->cssRenderer = new WiseChatCssRenderer();
 	}
 	
 	public function initializeCore() {
@@ -107,19 +118,17 @@ class WiseChat {
 			$lastId = $message->id;
 		}
 		
-		$hintMessage = $this->options->getEncodedOption('hint_message');
-		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
-		
 		$customizationsPanel = $this->getCustomizationsPanel();
 		$userNamePanel = $this->getCurrentUserNamePanel();
 		$containerClasses = $this->getContainerClasses();
 		$submitButton = $this->getSubmitButton();
+		$inputField = $this->getInputField();
 		$outString .= "<div id='$chatId' class='$containerClasses'>
 				<div class='wcMessages'>{$messagesRendering}</div>
 				$userNamePanel
 				$submitButton
 				<div class='wcInputContainer'>
-					<input class='wcInput' type='text' maxlength='{$messageMaxLength}' placeholder='$hintMessage' />
+					$inputField
 				</div>
 				$customizationsPanel
 			</div>
@@ -133,12 +142,26 @@ class WiseChat {
 		);
 		$jsOptionsRender = json_encode($jsOptions);
 		
-		$outString .= $this->renderer->getRenderedStylesDefinition($chatId);
+		$outString .= $this->cssRenderer->getCssDefinition($chatId);
 		$outString .= "<script type='text/javascript'>jQuery(window).load(function() {  new WiseChatController({$jsOptionsRender}); }); </script>";
 		
 		$this->bansDAO->deleteOldBans();
 		
 		return $outString;
+	}
+	
+	private function getInputField() {
+		$html = '';
+		$hintMessage = $this->options->getEncodedOption('hint_message');
+		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
+		
+		if (!$this->options->isOptionEnabled('multiline_support')) {
+			$html = "<input class='wcInput' type='text' maxlength='{$messageMaxLength}' placeholder='{$hintMessage}' />";
+		} else {
+			$html = "<textarea class='wcInput' maxlength='{$messageMaxLength}' placeholder='{$hintMessage}'></textarea>";
+		}
+		
+		return $html;
 	}
 	
 	private function getCurrentUserNamePanel() {
@@ -169,16 +192,12 @@ class WiseChat {
 		
 		if ($isAnyCustomizationEnabled) {
 			$html .= "<div class='wcCustomizations'>";
-			$html .= sprintf(
-						"<a href='javascript://' class='wcCustomizeButton'>%s</a>",
-						$this->options->getEncodedOption('message_customize', 'Customize')
-					);
-			
+			$html .= sprintf("<a href='javascript://' class='wcCustomizeButton'>%s</a>", $this->options->getEncodedOption('message_customize', 'Customize'));
 			$html .= "<div class='wcCustomizationsPanel' style='display:none;'>";
 			if ($allowChangeUserName) {
 				$currentUserName = $this->usersDAO->getUserName();
 				$html .= sprintf(
-							"<label>%s: <input class='wcUserName' type='text' value='%s' /></label>",
+							"<label>%s: <input class='wcUserName' type='text' value='%s' /></label>", 
 							$this->options->getEncodedOption('message_name', 'Name'), htmlentities($currentUserName)
 						);
 				$html .= sprintf(

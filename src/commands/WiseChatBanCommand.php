@@ -3,11 +3,10 @@
 require_once "WiseChatAbstractCommand.php";
 
 /**
- * Wise Chat /ban command.
+ * Wise Chat command: /ban [userName] [duration]
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
  */
 class WiseChatBanCommand extends WiseChatAbstractCommand {
 
@@ -18,7 +17,6 @@ class WiseChatBanCommand extends WiseChatAbstractCommand {
 			$messageUser = $this->messagesDAO->getLastMessageByUserName($this->channel, $user);
 			
 			if ($messageUser !== null) {
-			
 				$duration = $this->bansDAO->getDurationFromString($this->arguments[1]);
 				
 				if ($this->bansDAO->createAndSave($messageUser->ip, $duration)) {

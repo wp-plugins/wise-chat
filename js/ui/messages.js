@@ -18,6 +18,7 @@ function WiseChatMessages(options, messagesHistory) {
 	var container = jQuery('#' + options.chatId);
 	var messagesContainer = container.find('.wcMessages');
 	var messagesInput = container.find('.wcInput');
+	var isMessageMultiline = messagesInput.is("textarea");
 	var submitButton = container.find('.wcSubmitButton');
 	
 	var currentRequest = null;
@@ -120,32 +121,37 @@ function WiseChatMessages(options, messagesHistory) {
 		if (message.length > 0) {
 			sendMessageRequest(message, channel);
 			messagesInput.val('');
+			messagesInput.focus();
 			
-			messagesHistory.resetPointer();
-			if (messagesHistory.getPreviousMessage() != message) {
-				messagesHistory.addMessage(message);
+			if (!isMessageMultiline) {
+				messagesHistory.resetPointer();
+				if (messagesHistory.getPreviousMessage() != message) {
+					messagesHistory.addMessage(message);
+				}
+				messagesHistory.resetPointer();
 			}
-			messagesHistory.resetPointer();
 		}
 	};
 	
 	function onInputKeyPress(e) {
-		if (e.which == 13) {
+		if (!isMessageMultiline && e.which == 13) {
 			sendMessage();
 		}
 	};
 	
 	function onInputKeyDown(e) {
-		var keyCode = e.which;
-		var messageCandidate = null;
-		
-		if (keyCode == 38) {
-			messageCandidate = messagesHistory.getPreviousMessage();
-		} else if (keyCode == 40) {
-			messageCandidate = messagesHistory.getNextMessage();
-		}
-		if (messageCandidate !== null) {
-			messagesInput.val(messageCandidate);
+		if (!isMessageMultiline) {
+			var keyCode = e.which;
+			var messageCandidate = null;
+			
+			if (keyCode == 38) {
+				messageCandidate = messagesHistory.getPreviousMessage();
+			} else if (keyCode == 40) {
+				messageCandidate = messagesHistory.getNextMessage();
+			}
+			if (messageCandidate !== null) {
+				messagesInput.val(messageCandidate);
+			}
 		}
 	};
 	
@@ -167,13 +173,8 @@ function WiseChatMessages(options, messagesHistory) {
 	
 	function formatDate(date, format) {
 		function makeLeadZero(number) {
-			if (number < 10) {
-				return '0' + number;
-			}
-			return number;
+			return (number < 10 ? '0' : '') + number;
 		}
-		
-		
 		
 		format = format.replace(/Y/, date.getFullYear());
 		format = format.replace(/m/, makeLeadZero(date.getMonth() + 1));
@@ -200,10 +201,6 @@ function WiseChatMessages(options, messagesHistory) {
 		scrollMessages();
 		convertUTCMessagesTime(container);
 	};
-	
-	//alert(new Date('2015-02-17T22:49:40'));
-	
-	//alert(formatDate(convertDateFromISO('2015-02-17T22:49:40+00:00'), 'Y-m-d'));
 	
 	this.scrollMessages = scrollMessages;
 	this.showMessage = showMessage;
