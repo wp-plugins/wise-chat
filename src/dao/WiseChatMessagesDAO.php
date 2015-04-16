@@ -20,14 +20,26 @@ class WiseChatMessagesDAO {
 	protected $bansDAO;
 	
 	/**
+	* @var WiseChatImagesDownloader
+	*/
+	private $imagesDownloader;
+	
+	/**
 	* @var WiseChatOptions
 	*/
 	private $options;
+	
+	/**
+	* @var string
+	*/
+	private $messageInjectionText;
 	
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->bansDAO = new WiseChatBansDAO();
+		$this->imagesDownloader = new WiseChatImagesDownloader();
+		$this->messageInjectionText = null;
 	}
 	
 	/**
@@ -38,13 +50,13 @@ class WiseChatMessagesDAO {
 	* @param string $message Content of the message
 	* @param boolean $isAdmin Idicates whether to mark the message as admin-owned
 	*
-	* @return null
+	* @return object|null
 	*/
 	public function addMessage($user, $channel, $message, $isAdmin = false) {
 		global $wpdb;
 		
 		$message = trim($message);
-		if (strlen($message) === 0) {
+		if (strlen($message) === 0 && strlen($this->messageInjectionText) === 0) {
 			return;
 		}
 		
@@ -63,8 +75,20 @@ class WiseChatMessagesDAO {
 			}
 		}
 		
+		// cut the message:
 		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
 		$filteredMessage = substr($filteredMessage, 0, $messageMaxLength);
+		
+		// convert images and links to shortcodes, download images (if enabled): 
+		$detectImages = $this->options->isOptionEnabled('allow_post_images');
+		$linksPreFilter = new WiseChatLinksPreFilter($this->imagesDownloader);
+		$filteredMessage = $linksPreFilter->filter($filteredMessage, $channel, $detectImages);
+		
+		// join an additional text:
+		if ($this->messageInjectionText !== null) {
+			$filteredMessage .= ' '.$this->messageInjectionText;
+			$this->messageInjectionText = null;
+		}
 		
 		$table = WiseChatInstaller::getMessagesTable();
 		$wpdb->insert($table,
@@ -77,6 +101,50 @@ class WiseChatMessagesDAO {
 				'ip' => $this->getRemoteAddress()
 			)
 		);
+		
+		return $this->getMessageById($wpdb->insert_id);
+	}
+	
+	/**
+	* Publishes a message in the given channel of the chat with given attachments.
+	*
+	* @param string $user Name of the user (an author of the message)
+	* @param string $channel Name of the channel
+	* @param string $message Content of the message
+	* @param array $attachments Array of attachements, only one image is supported
+	*
+	* @return object|null
+	*/
+	public function addMessageWithAttachments($user, $channel, $message, $attachments) {
+		$this->joinAttachments($channel, $attachments);
+		
+		return $this->addMessage($user, $channel, $message);
+	}
+	
+	/**
+	* Saves attachments in Media Library and attaches them to the message.
+	*
+	* @param string $channel
+	* @param array $attachments Array of attachements
+	*
+	* @return string The message
+	*/
+	private function joinAttachments($channel, $attachments) {
+		if (!is_array($attachments) || count($attachments) === 0) {
+			return;
+		}
+		
+		if ($attachments[0]['type'] === 'image') {
+			$imageData = $attachments[0]['data'];
+			$imageData = substr($imageData, strpos($imageData, ",") + 1);
+			$decodedData = base64_decode($imageData);
+			
+			$imagesDownloader = new WiseChatImagesDownloader();
+			$image = $imagesDownloader->saveImage($decodedData, $channel);
+			if (is_array($image)) {
+				$this->messageInjectionText = ' '.WiseChatShortcodeConstructor::getImageShortcode($image['id'], $image['image'], $image['image-th'], '_');
+			}
+		}
 	}
 	
 	/**
@@ -139,6 +207,7 @@ class WiseChatMessagesDAO {
 		
 		$conditions = array();
 		$conditions[] = "text != '".self::SYSTEM_PING_MESSAGE."'";
+		$conditions[] = "user != 'System'";
 		$sql = "SELECT channel, count(*) AS messages, max(time) AS last_message FROM {$table} ".
 				" WHERE ".implode(" AND ", $conditions).
 				" GROUP BY channel ".
@@ -161,6 +230,7 @@ class WiseChatMessagesDAO {
 	
 	/**
 	* Returns array of channels and amount of users that use each channel. 
+	* self::SYSTEM_PING_MESSAGE messages are also used to determine users presence.
 	*
 	* @return array Array of objects (fields: channel, users)
 	*/
@@ -172,6 +242,7 @@ class WiseChatMessagesDAO {
 		$conditions = array();
 		$timeFrame = time() - 60 * 2;
 		$conditions[] = "time > {$timeFrame}";
+		$conditions[] = "user != 'System'";
 		$sql = "SELECT channel, count(DISTINCT user) as users FROM {$table} ".
 				" WHERE ".implode(" AND ", $conditions).
 				" GROUP BY channel ".
@@ -232,19 +303,43 @@ class WiseChatMessagesDAO {
 	}
 	
 	/**
-	* Deletes all messages (in all channels).
+	* Returns message by given ID.
+	*
+	* @param string $id ID of the message
+	*
+	* @return objec|null
+	*/
+	public function getMessageById($id) {
+		global $wpdb;
+		
+		$id = intval($id);
+		$table = WiseChatInstaller::getMessagesTable();
+		$messages = $wpdb->get_results("SELECT * FROM {$table} WHERE id = {$id} LIMIT 1;");
+		
+		return is_array($messages) && count($messages) > 0 ? $messages[0] : null;
+	}
+	
+	/**
+	* Deletes all messages (in all channels). 
+	* Related images (WordPress Media Library objects) are also deleted.
 	*
 	* @return null
 	*/
 	public function deleteAll() {
 		global $wpdb;
 		
+		$attachements = $this->imagesDownloader->getAllImagesDownloaded();
+		foreach ($attachements as $attachement) {
+			wp_delete_attachment(intval($attachement->ID), true);
+		}
+		
 		$table = WiseChatInstaller::getMessagesTable();
 		$wpdb->get_results("DELETE FROM {$table} WHERE 1 = 1;");
 	}
 	
 	/**
-	* Deletes all messages in specified channel.
+	* Deletes all messages from specified channel.
+	* Related images (WordPress Media Library objects) are also deleted.
 	*
 	* @param string $channel Name of the channel
 	*
@@ -253,10 +348,38 @@ class WiseChatMessagesDAO {
 	public function deleteByChannel($channel) {
 		global $wpdb;
 		
-		$channel = addslashes($channel);
+		$attachements = $this->imagesDownloader->getAllImagesDownloadedForChannel($channel);
+		foreach ($attachements as $attachement) {
+			wp_delete_attachment(intval($attachement->ID), true);
+		}
 		
+		$channel = addslashes($channel);
 		$table = WiseChatInstaller::getMessagesTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE channel = '$channel';");
+		$wpdb->get_results("DELETE FROM {$table} WHERE channel = '{$channel}';");
+	}
+	
+	/**
+	* Deletes a message by ID.
+	* Related images (WordPress Media Library objects) are also deleted.
+	*
+	* @param integer $id
+	*
+	* @return null
+	*/
+	public function deleteById($id) {
+		global $wpdb;
+		
+		$id = intval($id);
+		$message = $this->getMessageById($id);
+		if ($message !== null) {
+			$attachementIds = WiseChatImagesPostFilter::getImageIds(htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8'));
+			foreach ($attachementIds as $attachementId) {
+				wp_delete_attachment(intval($attachementId), true);
+			}
+		
+			$table = WiseChatInstaller::getMessagesTable();
+			$wpdb->get_results("DELETE FROM {$table} WHERE id = '$id';");
+		}
 	}
 	
 	private function getRemoteAddress() {

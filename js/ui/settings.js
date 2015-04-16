@@ -1,10 +1,10 @@
 /**
- * Wise Chat user settings.
+ * Wise Chat user's settings support.
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
-function WiseChatSettings(options, wiseChatMessages) {
+function WiseChatSettings(options, messages) {
 	var settingsEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_settings_endpoint';
 	var container = jQuery('#' + options.chatId);
 	var currentUserName = container.find('.wcCurrentUserName');
@@ -18,10 +18,13 @@ function WiseChatSettings(options, wiseChatMessages) {
 	};
 	
 	function onUserNameApproveButtonClick(e) {
+		var userNameInputElement = userNameInput[0];
+		if (typeof userNameInputElement.checkValidity == 'function') {
+			userNameInputElement.checkValidity();
+		}
+		
 		var userName = userNameInput.val().replace(/^\s+|\s+$/g, '');
 		if (userName.length > 0) {
-			customizationsPanel.hide();
-			
 			jQuery.ajax({
 				type: "POST",
 				url: settingsEndpoint,
@@ -30,7 +33,11 @@ function WiseChatSettings(options, wiseChatMessages) {
 					value: userName
 				}
 			})
-			.success(onUserNameChanged);
+			.success(onUserNameChanged)
+			.error(function(jqXHR, textStatus, errorThrown) {
+				messages.showErrorMessage('Server error occurred: ' + errorThrown);
+				messages.scrollMessages();
+			});
 		}
 	};
 	
@@ -38,15 +45,16 @@ function WiseChatSettings(options, wiseChatMessages) {
 		try {
 			var response = jQuery.parseJSON(result);
 			if (response.error) {
-				wiseChatMessages.showErrorMessage(response.error);
+				messages.showErrorMessage(response.error);
 			} else {
 				currentUserName.html(response.value + ':');
+				customizationsPanel.hide();
 			}
 		}
 		catch (e) {
-			wiseChatMessages.showErrorMessage('Server error: ' + e.toString());
+			messages.showErrorMessage('Server error: ' + e.toString());
 		}
-		wiseChatMessages.scrollMessages();
+		messages.scrollMessages();
 	};
 	
 	customizeButton.click(onCustomizeButtonClick);

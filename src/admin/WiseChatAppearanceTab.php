@@ -23,6 +23,7 @@ class WiseChatAppearanceTab extends WiseChatAbstractTab {
 			array('allow_change_user_name', 'Allow To Change User Name', 'booleanFieldCallback', 'boolean', 'Permits an anonymous user to change his/her name displayed on the chat'),
 			array('emoticons_enabled', 'Show Emoticons', 'booleanFieldCallback', 'boolean', 'Shows emoticons'),
 			array('multiline_support', 'Multiline Messages', 'booleanFieldCallback', 'boolean', 'Permits multiline messages. Submit button has to be enabled in order to send a message.'),
+			array('show_users', 'Show Users List', 'booleanFieldCallback', 'boolean', 'Shows users currently visiting the channel'),
 		);
 	}
 	
@@ -40,7 +41,8 @@ class WiseChatAppearanceTab extends WiseChatAbstractTab {
 			'show_message_submit_button' => 0,
 			'allow_change_user_name' => 0,
 			'emoticons_enabled' => 1,
-			'multiline_support' => 0
+			'multiline_support' => 0,
+			'show_users' => 0
 		);
 	}
 }

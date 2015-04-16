@@ -23,6 +23,11 @@ abstract class WiseChatAbstractTab {
 	protected $messagesDAO;
 	
 	/**
+	* @var WiseChatActionsDAO
+	*/
+	protected $actionsDAO;
+	
+	/**
 	* @var WiseChatOptions
 	*/
 	protected $options;
@@ -32,6 +37,7 @@ abstract class WiseChatAbstractTab {
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->messagesDAO = new WiseChatMessagesDAO();
+		$this->actionsDAO = new WiseChatActionsDAO();
 	}
 	
 	/**
@@ -106,7 +112,7 @@ abstract class WiseChatAbstractTab {
 	}
 	
 	/**
-	* Callback method for displaying plain text field with a hint. Default value would be used when the property was not found.
+	* Callback method for displaying plain text field with a hint. If the property is not defined the default value is used.
 	*
 	* @param array $args Array containing keys: id, name and hint
 	*
@@ -127,7 +133,7 @@ abstract class WiseChatAbstractTab {
 	}
 	
 	/**
-	* Callback method for displaying color selection text field with a hint. Default value would be used when the property was not found.
+	* Callback method for displaying color selection text field with a hint. If the property is not defined the default value is used.
 	*
 	* @param array $args Array containing keys: id, name and hint
 	*
@@ -148,7 +154,7 @@ abstract class WiseChatAbstractTab {
 	}
 	
 	/**
-	* Callback method for displaying boolean field with a hint. Default value would be used when the property was not found.
+	* Callback method for displaying boolean field (checkbox) with a hint. If the property is not defined the default value is used.
 	*
 	* @param array $args Array containing keys: id, name and hint
 	*

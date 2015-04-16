@@ -4,7 +4,7 @@
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
-function WiseChatMessages(options, messagesHistory) {
+function WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter) {
 	var MESSAGES_REFRESH_TIMEOUT = 2000;
 	
 	var lastId = options.lastId;
@@ -14,17 +14,18 @@ function WiseChatMessages(options, messagesHistory) {
 	
 	var messagesEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_messages_endpoint';
 	var messageEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_message_endpoint';
+	var messageDeleteEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_delete_message_endpoint';
 	
 	var container = jQuery('#' + options.chatId);
 	var messagesContainer = container.find('.wcMessages');
+	var usersListContainer = container.find('.wcUsersList');
 	var messagesInput = container.find('.wcInput');
 	var isMessageMultiline = messagesInput.is("textarea");
 	var submitButton = container.find('.wcSubmitButton');
-	
 	var currentRequest = null;
 	
 	function scrollMessages() {
-		messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
+		setTimeout(function() { messagesContainer.scrollTop(messagesContainer[0].scrollHeight); }, 200);
 	};
 	
 	function showMessage(message) {
@@ -33,8 +34,30 @@ function WiseChatMessages(options, messagesHistory) {
 		convertUTCMessagesTime(parsedMessage);
 	};
 	
+	function hideMessage(messageId) {
+		container.find('div[data-id="' + messageId + '"]').remove();
+	}
+	
+	function hideAllMessages() {
+		container.find('div.wcMessage').remove();
+	}
+	
 	function showErrorMessage(message) {
 		messagesContainer.append('<div class="wcMessage wcErrorMessage">' + message + '</div>');
+	};
+	
+	function setBusyState() {
+		submitButton.attr('disabled', '1');
+		submitButton.attr('readonly', '1');
+		messagesInput.attr('placeholder', options.messages.message_sending);
+		messagesInput.attr('readonly', '1');
+	};
+	
+	function setIdleState() {
+		submitButton.attr('disabled', null);
+		submitButton.attr('readonly', null);
+		messagesInput.attr('placeholder', options.messages.hint_message);
+		messagesInput.attr('readonly', null);
 	};
 	
 	function initializeRefresher() {
@@ -76,6 +99,13 @@ function WiseChatMessages(options, messagesHistory) {
 					}
 				}
 			}
+			if (response.actions) {
+				for (var actionName in response.actions) {
+					if (actionName == 'refreshUsersList') {
+						refreshUsersList(response.actions['refreshUsersList'].data);
+					}
+				}
+			}
 			initializeRefresher();
 			
 			if (response.result.length > 0) {
@@ -88,6 +118,7 @@ function WiseChatMessages(options, messagesHistory) {
 	};
 	
 	function onMessageSent(result) {
+		setIdleState();
 		try {
 			var response = jQuery.parseJSON(result);
 			if (response.error) {
@@ -100,17 +131,20 @@ function WiseChatMessages(options, messagesHistory) {
 		scrollMessages();
 	};
 	
-	function sendMessageRequest(message, channel) {
+	function sendMessageRequest(message, channel, attachments) {
+		setBusyState();
 		jQuery.ajax({
 			type: "POST",
 			url: messageEndpoint,
 			data: {
+				attachments: attachments,
 				channel: channel,
 				message: message
 			}
 		})
 		.success(onMessageSent)
 		.error(function(jqXHR, textStatus, errorThrown) {
+			setIdleState();
 			showErrorMessage('Server error occurred: ' + errorThrown);
 			scrollMessages();
 		});
@@ -118,12 +152,16 @@ function WiseChatMessages(options, messagesHistory) {
 	
 	function sendMessage() {
 		var message = messagesInput.val().replace(/^\s+|\s+$/g, '');
-		if (message.length > 0) {
-			sendMessageRequest(message, channel);
+		var attachments = messageAttachments.getAttachments();
+		messageAttachments.clearAttachments();
+		
+		if (message.length > 0 || attachments.length > 0) {
+			sendMessageRequest(message, channel, attachments);
+			
 			messagesInput.val('');
 			messagesInput.focus();
 			
-			if (!isMessageMultiline) {
+			if (!isMessageMultiline && message.length > 0) {
 				messagesHistory.resetPointer();
 				if (messagesHistory.getPreviousMessage() != message) {
 					messagesHistory.addMessage(message);
@@ -159,50 +197,79 @@ function WiseChatMessages(options, messagesHistory) {
 		container.find('.wcMessageTime').each(function(index, element) {
 			element = jQuery(element);
 			if (element.html().length === 0) {
-				var dateString = element.data('utc');
-				var date = convertDateFromISO(dateString);
+				var date = dateFormatter.parseISODate(element.data('utc'));
 				var dateFormatStr = 'Y-m-d';
-				if (formatDate(new Date(), dateFormatStr) == formatDate(date, dateFormatStr)) {
-					element.html(formatDate(date, 'H:i'));
+				if (dateFormatter.formatDate(new Date(), dateFormatStr) == dateFormatter.formatDate(date, dateFormatStr)) {
+					element.html(dateFormatter.formatDate(date, 'H:i'));
 				} else {
-					element.html(formatDate(date, dateFormatStr + ' H:i'));
+					element.html(dateFormatter.formatDate(date, dateFormatStr + ' H:i'));
 				}
 			}
 		});
 	}
 	
-	function formatDate(date, format) {
-		function makeLeadZero(number) {
-			return (number < 10 ? '0' : '') + number;
+	function refreshUsersList(data) {
+		var users = [];
+		for (var x = 0; x < data.length; x++) {
+			users.push(data[x].name);
 		}
-		
-		format = format.replace(/Y/, date.getFullYear());
-		format = format.replace(/m/, makeLeadZero(date.getMonth() + 1));
-		format = format.replace(/d/, makeLeadZero(date.getDate()));
-		format = format.replace(/H/, makeLeadZero(date.getHours()));
-		format = format.replace(/i/, makeLeadZero(date.getMinutes()));
-		
-		return format;
+		usersListContainer.html(users.join('<br />'));
 	}
 	
-	function convertDateFromISO(s) {
-		s = s.split(/\D/);
-		return new Date(Date.UTC(s[0], --s[1]||'', s[2]||'', s[3]||'', s[4]||'', s[5]||'', s[6]||''))
+	function onWindowResize() {
+		if (container.width() < 300) {
+			container.addClass('wcWidth300');
+		} else {
+			container.removeClass('wcWidth300');
+		}
+	}
+	
+	function onMessageDelete() {
+		if (!confirm('Are you sure you want to delete this message?')) {
+			return;
+		}
+		
+		var deleteButton = jQuery(this);
+		var messageId = deleteButton.data('id');
+		jQuery.ajax({
+			type: "POST",
+			url: messageDeleteEndpoint,
+			data: {
+				channel: channel,
+				messageId: messageId
+			}
+		})
+		.success(function() {
+			jQuery(deleteButton).parent().remove();
+		})
+		.error(function(jqXHR, textStatus, errorThrown) {
+			showErrorMessage('Server error occurred: ' + errorThrown);
+			scrollMessages();
+		});
+	}
+	
+	function attachEventListeners() {
+		container.on('click', 'a.wcMessageDeleteButton', onMessageDelete);
 	}
 	
 	// DOM events:
 	messagesInput.keypress(onInputKeyPress);
 	messagesInput.keydown(onInputKeyDown);
 	submitButton.click(sendMessage);
+	jQuery(window).resize(onWindowResize);
 	
 	// public API:
 	this.start = function() {
 		initializeRefresher();
 		scrollMessages();
 		convertUTCMessagesTime(container);
+		onWindowResize();
+		attachEventListeners();
 	};
 	
 	this.scrollMessages = scrollMessages;
 	this.showMessage = showMessage;
 	this.showErrorMessage = showErrorMessage;
+	this.hideMessage = hideMessage;
+	this.hideAllMessages = hideAllMessages;
 };

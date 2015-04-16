@@ -1,7 +1,7 @@
 <?php
 /*
 	Plugin Name: Wise Chat
-	Version: 1.4.0
+	Version: 1.5.0
 	Plugin URI: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 	Description: Displays Ajax-powered Chat.
 	Author: Marcin Ławrowski
@@ -20,6 +20,7 @@ require_once(dirname(__FILE__).'/src/commands/WiseChatCommandsResolver.php');
 require_once(dirname(__FILE__).'/src/WiseChat.php');
 require_once(dirname(__FILE__).'/src/WiseChatEndpoints.php');
 require_once(dirname(__FILE__).'/src/WiseChatWidget.php');
+require_once(dirname(__FILE__).'/src/messages/WiseChatImagesDownloader.php');
 
 // installer part:
 register_activation_hook(__FILE__, array('WiseChatInstaller', 'install'));
@@ -41,12 +42,24 @@ function wise_chat($channel = null) {
 	$wiseChat->render($channel);
 }
 
+// removing images downloaded by the chat:
+$wiseChatImagesDownloader = new WiseChatImagesDownloader();
+add_action('delete_attachment', array($wiseChatImagesDownloader, 'removeRelatedImages'));
+
 // Endpoints fo AJAX requests:
 $wiseChatEndpoints = new WiseChatEndpoints();
 add_action("wp_ajax_nopriv_wise_chat_messages_endpoint", array($wiseChatEndpoints, 'messagesEndpoint'));
 add_action("wp_ajax_wise_chat_messages_endpoint", array($wiseChatEndpoints, 'messagesEndpoint'));
+
 add_action("wp_ajax_nopriv_wise_chat_message_endpoint", array($wiseChatEndpoints, 'messageEndpoint'));
 add_action("wp_ajax_wise_chat_message_endpoint", array($wiseChatEndpoints, 'messageEndpoint'));
+
+add_action("wp_ajax_nopriv_wise_chat_delete_message_endpoint", array($wiseChatEndpoints, 'messageDeleteEndpoint'));
+add_action("wp_ajax_wise_chat_delete_message_endpoint", array($wiseChatEndpoints, 'messageDeleteEndpoint'));
+
+add_action("wp_ajax_nopriv_wise_chat_actions_endpoint", array($wiseChatEndpoints, 'actionsEndpoint'));
+add_action("wp_ajax_wise_chat_actions_endpoint", array($wiseChatEndpoints, 'actionsEndpoint'));
+
 add_action("wp_ajax_nopriv_wise_chat_settings_endpoint", array($wiseChatEndpoints, 'settingsEndpoint'));
 add_action("wp_ajax_wise_chat_settings_endpoint", array($wiseChatEndpoints, 'settingsEndpoint'));
 

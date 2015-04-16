@@ -11,12 +11,14 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 	public function getFields() {
 		return array(
 			array('channels', 'Channels', 'channelsChallback', 'void'),
+			array('admin_actions', 'Actions', 'adminActionsCallback', 'void'),
 		);
 	}
 	
 	public function getDefaultValues() {
 		return array(
 			'channels' => null,
+			'admin_actions' => null
 		);
 	}
 	
@@ -24,7 +26,14 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 		$channel = $_GET['channel'];
 		
 		$ban = $this->messagesDAO->deleteByChannel($channel);
-		$this->addMessage('Channel has been cleared');
+		$this->actionsDAO->publishAction('deleteAllMessagesFromChannel', array('channel' => $channel));
+		$this->addMessage('All messages from the channel have been deleted');
+	}
+	
+	public function clearAllChannelsAction() {
+		$this->messagesDAO->deleteAll();
+		$this->actionsDAO->publishAction('deleteAllMessages', array());
+		$this->addMessage('All messages have been deleted');
 	}
 	
 	public function channelsChallback() {
@@ -41,19 +50,25 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 		
 		foreach ($summary as $key => $channel) {
 			$clearURL = $url.'&wc_action=clearChannel&channel='.urlencode($channel->channel);
-			$clearLink = "<a href='{$clearURL}' onclick='return confirm(\"Are you sure?\")'>Clear</a><br />";
+			$clearLink = "<a href='{$clearURL}' title='Deletes all messages from the channel' onclick='return confirm(\"Are you sure?\")'>Clear</a><br />";
 			
-			$classes = '';
-			if ($key % 2 == 0) {
-				$classes = 'alternate';
-			}
+			$classes = $key % 2 == 0 ? 'alternate' : '';
 			
 			$html .= sprintf(
-						'<tr class="%s"><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', 
-						$classes, $channel->channel, $channel->messages, $channel->users, date('Y-m-d H:i:s', $channel->last_message), $clearLink
-					);
+				'<tr class="%s"><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', 
+				$classes, $channel->channel, $channel->messages, $channel->users, date('Y-m-d H:i:s', $channel->last_message), $clearLink
+			);
 		}
-		$html .= "</table><p class='description'>Channels without messages are not included here. Users counter accuracy: 120 s.</p>";
+		$html .= "</table><p class='description'>Notice: channels without messages are not included here. Users counter accuracy: 120 s.</p>";
 		print($html);
+	}
+	
+	public function adminActionsCallback() {
+		$url = admin_url("options-general.php?page=".WiseChatSettings::MENU_SLUG."&wc_action=clearAllChannels");
+		
+		printf(
+			'<a class="button-secondary" href="%s" title="Deletes all messages sent to any channel" onclick="return confirm(\'Are you sure? All messages will be lost.\')">Clear All Messages</a>',
+			wp_nonce_url($url)
+		);
 	}
 }

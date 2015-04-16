@@ -10,8 +10,9 @@ class WiseChatUsersDAO {
 	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
 	const USER_NAME_SESSION_KEY = 'wise_chat_user_name';
 	const USER_AUTO_NAME_SESSION_KEY = 'wise_chat_user_name_auto';
-	const ACTIVITY_TIME_SESSION_KEY = 'wise_chat_activity_time';
-	const ACTIVITY_TIME_THRESHOLD = 120;
+	const EVENT_TIME_SESSION_KEY = 'wise_chat_activity_time';
+	const EVENT_TIME_THRESHOLD = 120;
+	const CURRENT_USERS_TESTING_TIMEFRAME = 180;
 	const ABUSES_COUNTER_SESSION_KEY = 'wise_chat_ban_detector_counter';
 	
 	/**
@@ -158,25 +159,41 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Determines whether current user's activity should be signaled.
+	* Determines whether the time for an event identified by given group and id has elapsed. 
 	*
-	* @param string $key Additional key for grouping
+	* @param string $eventGroup Event group
+	* @param string $eventId Event id
 	*
 	* @return boolean
 	*/
-	public function shouldSignalActivity($key) {
-		$sessionKey = self::ACTIVITY_TIME_SESSION_KEY.md5($key);
+	public function shouldTriggerEvent($eventGroup, $eventId) {
+		$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
 		if (!array_key_exists($sessionKey, $_SESSION)) {
 			$_SESSION[$sessionKey] = time();
 			return true;
 		}
 		$diff = time() - $_SESSION[$sessionKey];
-		if ($diff > self::ACTIVITY_TIME_THRESHOLD) {
+		if ($diff > self::EVENT_TIME_THRESHOLD) {
 			$_SESSION[$sessionKey] = time();
 			return true;
 		}
 		
 		return false;
+	}
+	
+	/**
+	* Resets tracking of the given event.
+	*
+	* @param string $eventGroup Event group
+	* @param string $eventId Event id
+	*
+	* @return null
+	*/
+	public function resetEventTracker($eventGroup, $eventId) {
+		$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
+		if (array_key_exists($sessionKey, $_SESSION)) {
+			unset($_SESSION[$sessionKey]);
+		}
 	}
 	
 	/**
@@ -203,6 +220,31 @@ class WiseChatUsersDAO {
 	*/
 	public function clearAbusesCounter() {
 		$_SESSION[self::ABUSES_COUNTER_SESSION_KEY] = 0;
+	}
+	
+	/**
+	* Returns users from given channel from last CURRENT_USERS_TESTING_TIMEFRAME seconds.
+	*
+	* @param string $channel Channel
+	*
+	* @return array
+	*/
+	public function getCurrentUsersOfChannel($channel) {
+		global $wpdb;
+		
+		$table = WiseChatInstaller::getMessagesTable();
+		
+		$conditions = array();
+		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
+		$conditions[] = "time > {$timeFrame}";
+		$conditions[] = "channel = '{$channel}'";
+		$conditions[] = "user != 'System'";
+		$sql = "SELECT DISTINCT user AS name FROM {$table} ".
+				" WHERE ".implode(" AND ", $conditions).
+				" ORDER BY user ASC ".
+				" LIMIT 1000;";
+				
+		return $wpdb->get_results($sql);
 	}
 	
 	/**

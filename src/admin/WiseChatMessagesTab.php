@@ -10,11 +10,13 @@ class WiseChatMessagesTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
-			array('messages_limit', 'Messages Limit', 'stringFieldCallback', 'integer', 'The limit of messages loaded on start-up'),
+			array('messages_limit', 'Messages Limit', 'stringFieldCallback', 'integer', 'Maximal quantity of messages loaded on start-up'),
 			array('message_max_length', 'Message Max Length', 'stringFieldCallback', 'integer', 'Maximum length of a message'),
-			array('filter_bad_words', 'Filter Bad Words', 'booleanFieldCallback', 'boolean', 'Uses its own dictionary to filter bad words'),
-			array('admin_actions', 'Admin Actions', 'adminActionsCallback', 'void'),
+			array('filter_bad_words', 'Filter Bad Words', 'booleanFieldCallback', 'boolean', 'Uses a dictionary to filter bad words (supported languages: English, Polish)'),
 			array('allow_post_links', 'Enable Links', 'booleanFieldCallback', 'boolean', 'Converts posted URLs to hyperlinks'),
+			array('allow_post_images', 'Enable Images', 'booleanFieldCallback', 'boolean', 'Downloads posted images (links pointing to images) into Media Library and displays them'),
+			array('enable_images_uploader', 'Enable Images Uploader', 'booleanFieldCallback', 'boolean', 'Enables uploading of pictures either from local storage or from the camera (on a mobile device). <br />In order to see uploaded picture "Enable Images" option has to be enabled'),
+			array('enable_message_actions', 'Enable Admin Actions', 'booleanFieldCallback', 'boolean', 'Displays removal button next to each message.'),
 		);
 	}
 	
@@ -24,21 +26,9 @@ class WiseChatMessagesTab extends WiseChatAbstractTab {
 			'message_max_length' => 400,
 			'filter_bad_words' => 1,
 			'allow_post_links' => 0,
-			'admin_actions' => null
-		);
-	}
-	
-	public function clearMessagesAction() {
-		$this->messagesDAO->deleteAll();
-		$this->addMessage('All messages have been deleted');
-	}
-	
-	public function adminActionsCallback() {
-		$url = admin_url("options-general.php?page=".WiseChatSettings::MENU_SLUG."&wc_action=clearMessages");
-		
-		printf(
-			'<a class="button-secondary" href="%s" title="Deletes all messages sent to any channel">Clear Messages</a>',
-			wp_nonce_url($url)
+			'allow_post_images' => 0,
+			'enable_images_uploader' => 0,
+			'enable_message_actions' => 0
 		);
 	}
 }

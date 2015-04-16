@@ -4,7 +4,7 @@ Donate link: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 Tags: chat, plugin, ajax, javascript, shortcode, social, widget, responsive
 Requires at least: 3.6
 Tested up to: 4.1
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,7 +20,10 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * no server required
 * multiple channels (chat rooms) support
 * channels statistics (active users, published messages)
+* channels moderation (removing single messages)
 * emoticons support
+* posting links and images (downloaded and stored into Media Library)
+* posting pictures from camera (images uploader)
 * multiple chat instances on the same page
 * language localization for end-users
 * built-in bad words filter (supports English and Polish languages)
@@ -32,6 +35,7 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * logged in users (WordPress user name)
 * option to allow access for logged in users only
 * chat user settings (e.g. name changing)
+* list of current users
 * messages history (recently published messages in input field)
 
 All settings are available on `Settings -> Wise Chat Settings` page. See screenshots for detailed features. 
@@ -44,7 +48,10 @@ All settings are available on `Settings -> Wise Chat Settings` page. See screens
 1. Alternatively install it in your templates via `<?php if (function_exists('wise_chat')) { wise_chat(); } ?>` code.
 1. Alternatively install it using dedicated widget in `Appearance -> Widgets`, it's called `Wise Chat Window`.
 
-In order to use all features of bad words filter you need to have `mbstring` PHP extension installed on your server. 
+= Post Installation Notices: =
+* After installation go to Settings -> Wise Chat Settings page, select Localization tab and translate all messages into your own language. 
+* In order to use all features of bad words filter you need to have `mbstring` PHP extension installed on your server. 
+* Posting pictures from camera / local storage is limited to the specific range of Web browsers. See FAQ for details.
 
 == Frequently Asked Questions ==
 
@@ -133,20 +140,48 @@ Go to Settings -> Wise Chat Settings page, select General tab and select "Only F
 
 There is a counter for each user. Everytime an user uses a bad word in a message the counter is incremented. If it reaches the threshold (default - 3 abuses) the user is banned for 1 day. 
 
+= How as an administrator can I delete single message from the channel? =
+
+Go to Settings -> Wise Chat Settings, select Messages tab and enable "Enable Admin Actions" option. From now each message in each channel has its own delete button ("X" icon). The button appears only for logged in administrators. 
+
+= How does "Enable Images" option actually work? =
+
+If you enable "Enable Images" option every link posted in the chat which points to an image will be converted into image. The image will be downloaded into Media Library and then displayed on the chat window. Those downloaded images will be removed from Media Library together with the related chat messages (either when removing all messages or a single one). If an image cannot be downloaded the regular link is displayed instead. 
+
+= Option "Enable Images" does not work. I see regular hyperlinks instead of images. What is wrong? =
+
+The option requires a few prerequisites in order to operate correctly: GD and Curl extensions must be installed, Media Library must operate correctly, posted image link must have a valid extension (jpg, jpeg, gif, bmp, tiff or png), HTTP status code of the response must be equal 200, image cannot be larger than 2MB. Try to read PHP logs in case of problems. 
+
+= What if I would like the images to be opened in a popup layer? =
+
+By default all images open using Lightbox library but only if the library is installed. Without Lightbox each image opens in the new tab / window.
+
+= Images uploader does not work. What is wrong? =
+
+Uploading of images is supported in the following Web browsers: IE 10+, Firefox 31+, Chrome 31+, Safari 7+, Opera 27+, iOS Safari 7.1+, Android Browser 4.1+, Chrome For Android 41+.
+
+
 == Screenshots ==
 
-1. The chat after installation.
-2. Multiple chats on the same page.
-3. Customizations.
-4. Custom user name, WordPress user highlighted and submit button.
-5. General settings.
-6. Messages settings.
-7. Appearance adjustments.
-8. Channels statistics.
-9. Bans control.
+01. The chat after installation.
+02. Multiple chats on the same page.
+03. Customizations.
+04. Custom user name, list of users, WordPress user highlighted, submit button, posting pictures and links
+05. General settings.
+06. Messages settings.
+07. Appearance adjustments.
+08. Channels statistics.
+09. Bans control.
 10. Localizations for end-user.
 
 == Changelog ==
+
+= 1.5 =
+* Posting images (stored in Media Library)
+* Images uploader - posting pictures from camera (in case of mobile devices) or from local storage (in case of desktop)
+* List of users in the side bar
+* Flexible messages list on small devices
+* Option to moderate channels by removing single messages
 
 = 1.4 =
 * Configurable width and height of the chat window

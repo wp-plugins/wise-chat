@@ -1,7 +1,8 @@
 <?php
 
 require_once(dirname(__FILE__).'/filters/WiseChatFilter.php');
-require_once(dirname(__FILE__).'/filters/WiseChatLinksFilter.php');
+require_once(dirname(__FILE__).'/filters/WiseChatLinksPostFilter.php');
+require_once(dirname(__FILE__).'/filters/WiseChatImagesPostFilter.php');
 require_once(dirname(__FILE__).'/filters/WiseChatEmoticonsFilter.php');
 
 /**
@@ -35,7 +36,8 @@ class WiseChatRenderer {
 	* @return string HTML source
 	*/
 	public function getRenderedMessage($message) {
-		$formated = $this->getRenderedMessageDateAndTime($message);
+		$formated = $this->getAdminActions($message);
+		$formated .= $this->getRenderedMessageDateAndTime($message);
 		$formated .= $this->getRenderedUserName($message);
 		$formated .= $this->getRenderedMessageContent($message);
 		
@@ -47,7 +49,26 @@ class WiseChatRenderer {
 			$messageClasses[] = 'wcCurrentUserMessage';
 		}
 		
-		return sprintf('<div class="%s">%s</div>', implode(' ', $messageClasses), $formated);
+		return sprintf('<div class="%s" data-id="%s">%s</div>', implode(' ', $messageClasses), $message->id, $formated);
+	}
+	
+	/**
+	* Returns buttons for admin actions.
+	*
+	* @param object $message Message details
+	*
+	* @return string HTML source
+	*/
+	private function getAdminActions($message) {
+		$html = '';
+		
+		if ($this->options->isOptionEnabled('enable_message_actions') && $this->usersDAO->isWpUserAdminLogged()) {
+			$filePath = sprintf("%s/gfx/icons/x.png", $this->options->getBaseDir());
+			$imgTag = sprintf("<img src='%s' class='wcIcon' />", $filePath);
+			$html .= sprintf('<a href="javascript://" class="wcAdminAction wcMessageDeleteButton" data-id="%d" title="Delete the message">%s</a> ', $message->id, $imgTag);
+		}
+		
+		return $html;
 	}
 	
 	/**
@@ -89,7 +110,7 @@ class WiseChatRenderer {
 			}
 		}
 		
-		return '<span class="wcMessageUser">'.$formatedUserName.'</span>: ';
+		return '<span class="wcMessageUser">'.$formatedUserName.':</span> ';
 	}
 	
 	/**
@@ -101,21 +122,21 @@ class WiseChatRenderer {
 	*/
 	private function getRenderedMessageContent($message) {
 		$formatedMessageContent = htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8');
-		if ($this->options->isOptionEnabled('allow_post_links')) {
-			$formatedMessageContent = WiseChatLinksFilter::filter($formatedMessageContent);
-		}
+		
+		$formatedMessageContent = WiseChatLinksPostFilter::filter($formatedMessageContent, $this->options->isOptionEnabled('allow_post_links'));
+		$formatedMessageContent = WiseChatImagesPostFilter::filter(
+			$formatedMessageContent, $this->options->isOptionEnabled('allow_post_images'), $this->options->isOptionEnabled('allow_post_links')
+		);
+		
 		if ($this->options->isOptionEnabled('emoticons_enabled', true)) {
 			$formatedMessageContent = WiseChatEmoticonsFilter::filter($formatedMessageContent);
 		}
 		
 		if ($this->options->isOptionEnabled('multiline_support')) {
-			if (strstr($formatedMessageContent, "\n") !== false) {
-				$formatedMessageContent = "\n".$formatedMessageContent;
-			}
 			$formatedMessageContent = str_replace("\n", '<br />', $formatedMessageContent);
 		}
 		
-		return $formatedMessageContent;
+		return sprintf('<span class="wcMessageContent">%s</span>', $formatedMessageContent);
 	}
 	
 	private function getTemplatedString($variables, $template) {

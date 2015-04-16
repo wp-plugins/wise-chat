@@ -41,12 +41,15 @@ class WiseChatCssRenderer {
 		$this->addDefinition('.wcWpMessage', 'text_color_logged_user', 'color');
 		$this->addDefinition('.wcWpMessage a', 'text_color_logged_user', 'color');
 		$this->addDefinition('.wcMessages', 'background_color', 'background-color');
+		$this->addDefinition('.wcUsersList', 'background_color', 'background-color');
 		$this->addDefinition('.wcInput', 'background_color_input', 'background-color');
 		$this->addDefinition('.wcInput', 'text_color', 'color');
 		$this->addDefinition('.wcMessages', 'text_color', 'color');
+		$this->addDefinition('.wcUsersList', 'text_color', 'color');
 		$this->addDefinition('.wcCurrentUserName', 'text_color', 'color');
 		$this->addLengthDefinition('', 'chat_width', 'width');
 		$this->addLengthDefinition('.wcMessages', 'chat_height', 'height');
+		$this->addLengthDefinition('.wcUsersList', 'chat_height', 'height');
 		
 		return $this->getDefinitions();
 	}

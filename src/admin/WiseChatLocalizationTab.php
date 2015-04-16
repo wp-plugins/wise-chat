@@ -25,6 +25,7 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			array('message_save', '"Save" message', 'stringFieldCallback', 'string'),
 			array('message_name', '"Name" message', 'stringFieldCallback', 'string'),
 			array('message_customize', '"Customize" message', 'stringFieldCallback', 'string'),
+			array('message_sending', '"Sending" message', 'stringFieldCallback', 'string'),
 			
 			array('message_error_1', 'Message error #1', 'stringFieldCallback', 'string', 'Message: "Only letters, number, spaces, hyphens and underscores are allowed"'),
 			array('message_error_2', 'Message error #2', 'stringFieldCallback', 'string', 'Message: "This name is already occupied"'),
@@ -41,6 +42,7 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			'message_save' => 'Save',
 			'message_name' => 'Name',
 			'message_customize' => 'Customize',
+			'message_sending' => 'Sending ...',
 			'message_error_1' => 'Only letters, number, spaces, hyphens and underscores are allowed',
 			'message_error_2' => 'This name is already occupied',
 			'message_error_3' => 'You were banned from posting messages',

@@ -1,10 +1,13 @@
 <?php
 
 require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatActionsDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatBansDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
 require_once(dirname(__FILE__).'/rendering/WiseChatRenderer.php');
 require_once(dirname(__FILE__).'/rendering/WiseChatCssRenderer.php');
+require_once(dirname(__FILE__).'/rendering/filters/WiseChatLinksPreFilter.php');
+require_once(dirname(__FILE__).'/rendering/filters/WiseChatShortcodeConstructor.php');
 
 /**
  * Wise Chat core class.
@@ -39,6 +42,11 @@ class WiseChat {
 	private $usersDAO;
 	
 	/**
+	* @var WiseChatActionsDAO
+	*/
+	private $actionsDAO;
+	
+	/**
 	* @var WiseChatRenderer
 	*/
 	private $renderer;
@@ -55,6 +63,7 @@ class WiseChat {
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
+		$this->actionsDAO = new WiseChatActionsDAO();
 		$this->renderer = new WiseChatRenderer();
 		$this->cssRenderer = new WiseChatCssRenderer();
 	}
@@ -72,6 +81,7 @@ class WiseChat {
 		wp_enqueue_script('wise_chat_messages_history',  $this->baseDir.'js/utils/messages_history.js', array());
 		wp_enqueue_script('wise_chat_messages',  $this->baseDir.'js/ui/messages.js', array());
 		wp_enqueue_script('wise_chat_settings',  $this->baseDir.'js/ui/settings.js', array());
+		wp_enqueue_script('wise_chat_actions_executor',  $this->baseDir.'js/actions/executor.js', array());
 		wp_enqueue_script('wise_chat_core',  $this->baseDir.'js/wise_chat.js', array());
 		wp_enqueue_style('wise_chat_core', $this->baseDir.'css/wise_chat.css');
 	}
@@ -105,6 +115,8 @@ class WiseChat {
 		}
 		$chatId = 'wc'.md5(uniqid('', true));
 		
+		$this->usersDAO->resetEventTracker('usersList', $channel);
+		
 		$messages = $this->messagesDAO->getMessages($channel);
 		$messagesRendering = '';
 		$lastId = 0;
@@ -119,17 +131,23 @@ class WiseChat {
 		}
 		
 		$customizationsPanel = $this->getCustomizationsPanel();
+		$usersPanel = $this->getUsersPanel();
 		$userNamePanel = $this->getCurrentUserNamePanel();
 		$containerClasses = $this->getContainerClasses();
 		$submitButton = $this->getSubmitButton();
+		$imagesUploaderButton = $this->getImagesUploaderButton();
+		$attachmentsPanel = $this->getAttachmentsPanel();
 		$inputField = $this->getInputField();
 		$outString .= "<div id='$chatId' class='$containerClasses'>
 				<div class='wcMessages'>{$messagesRendering}</div>
+				$usersPanel
 				$userNamePanel
 				$submitButton
+				$imagesUploaderButton
 				<div class='wcInputContainer'>
 					$inputField
 				</div>
+				$attachmentsPanel
 				$customizationsPanel
 			</div>
 		";
@@ -138,7 +156,12 @@ class WiseChat {
 			'chatId' => $chatId,
 			'channel' => $channel,
 			'lastId' => $lastId,
-			'siteURL' => get_site_url()
+			'lastActionId' => $this->actionsDAO->getLastActionId(),
+			'siteURL' => get_site_url(),
+			'messages' => array(
+				'message_sending' => $this->options->getEncodedOption('message_sending', 'Sending ...'),
+				'hint_message' => $this->options->getEncodedOption('hint_message')
+			)
 		);
 		$jsOptionsRender = json_encode($jsOptions);
 		
@@ -184,6 +207,42 @@ class WiseChat {
 		return '';
 	}
 	
+	private function getImagesUploaderButton() {
+		if ($this->options->isOptionEnabled('enable_images_uploader')) {
+			$html = '<a href="javascript://" class="wcAddImageAttachment"><input type="file" accept="image/*;capture=camera" class="wcImageUploadFile" /></a>';
+			
+			return $html;
+		}
+		
+		return '';
+	}
+	
+	private function getAttachmentsPanel() {
+		if ($this->options->isOptionEnabled('enable_images_uploader')) {
+			$filePath = sprintf("%s/gfx/icons/x.png", $this->options->getBaseDir());
+			$imgTag = sprintf("<img src='%s' class='wcIcon' />", $filePath);
+			
+			$html = '<div class="wcMessageAttachments" style="display: none">';
+			$html .= '<img class="wcImageUploadPreview" />';
+			$html .= '<a href="javascript://" class="wcImageUploadClear">'.$imgTag.'</a>';
+			$html .= '</div>';
+			
+			return $html;
+		}
+		
+		return '';
+	}
+	
+	private function getUsersPanel() {
+		$html = '';
+		
+		if ($this->options->isOptionEnabled('show_users')) {
+			$html .= "<div class='wcUsersList'>&nbsp;</div><br class='wcClear' />";
+		}
+		
+		return $html;
+	}
+	
 	private function getCustomizationsPanel() {
 		$html = '';
 	
@@ -197,7 +256,7 @@ class WiseChat {
 			if ($allowChangeUserName) {
 				$currentUserName = $this->usersDAO->getUserName();
 				$html .= sprintf(
-							"<label>%s: <input class='wcUserName' type='text' value='%s' /></label>", 
+							"<label>%s: <input class='wcUserName' type='text' value='%s' required /></label>", 
 							$this->options->getEncodedOption('message_name', 'Name'), htmlentities($currentUserName)
 						);
 				$html .= sprintf(
@@ -213,8 +272,11 @@ class WiseChat {
 	
 	private function getContainerClasses() {
 		$classes = array('wcContainer');
-		if ($this->options->isOptionEnabled('show_message_submit_button')) {
-			$classes[] = 'wcSubmitButtonIncluded';
+		if ($this->options->isOptionEnabled('show_message_submit_button') || $this->options->isOptionEnabled('enable_images_uploader')) {
+			$classes[] = 'wcControlsButtonsIncluded';
+		}
+		if ($this->options->isOptionEnabled('show_users')) {
+			$classes[] = 'wcUsersListIncluded';
 		}
 		
 		return implode(' ', $classes);

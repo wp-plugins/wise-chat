@@ -3,6 +3,8 @@
 require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
 require_once(dirname(__FILE__).'/dao/WiseChatBansDAO.php');
+require_once(dirname(__FILE__).'/messages/WiseChatImagesDownloader.php');
+require_once(dirname(__FILE__).'/services/WiseChatUserService.php');
 
 /**
  * Wise Chat endpoints class
@@ -27,6 +29,11 @@ class WiseChatEndpoints {
 	private $bansDAO;
 	
 	/**
+	* @var WiseChatActionsDAO
+	*/
+	private $actionsDAO;
+	
+	/**
 	* @var WiseChatRenderer
 	*/
 	private $renderer;
@@ -36,34 +43,15 @@ class WiseChatEndpoints {
 	*/
 	private $options;
 	
+	private $arePostSlashesStripped = false;
+	
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->bansDAO = new WiseChatBansDAO();
+		$this->actionsDAO = new WiseChatActionsDAO();
 		$this->renderer = new WiseChatRenderer();
-	}
-	
-	/**
-	* Common endpoint for adjusting settings.
-	*
-	* @return null
-	*/
-	public function settingsEndpoint() {
-		if ($this->isChatDisabledForAnonymous()) {
-			die('{}');
-		}
-		
-		$_POST = stripslashes_deep($_POST);
-    
-		$response = array();
-		$property = $this->getPostParam('property');
-		if ($property == 'userName') {
-			$response = $this->changeUserName($this->getPostParam('value'));
-		}
-		
-		echo json_encode($response);
-		die();
 	}
 	
 	/**
@@ -82,6 +70,12 @@ class WiseChatEndpoints {
 		$response = array();
 		$response['result'] = array();
 		if (strlen($channel) > 0) {
+			// add ping message to the channel:
+			if ($this->usersDAO->shouldTriggerEvent('ping', $channel)) {
+				$this->messagesDAO->addPingMessage($this->usersDAO->getUserName(), $channel);
+			}
+		
+			// get and render messages:
 			$messages = $this->messagesDAO->getMessages($channel, $lastId > 0 ? $lastId : null);
 			foreach ($messages as $message) {
 				// ommit non-admin messages:
@@ -95,13 +89,27 @@ class WiseChatEndpoints {
 				
 				$response['result'][] = $messageToJson;
 			}
+			
+			// additional data:
+			if ($this->options->isOptionEnabled('show_users') && $this->usersDAO->shouldTriggerEvent('usersList', $channel)) {
+				$users = $this->usersDAO->getCurrentUsersOfChannel($channel);
+				foreach ($users as $user) {
+					$name = htmlspecialchars($user->name, ENT_QUOTES, 'UTF-8');
+					if ($this->usersDAO->getUserName() == $user->name) {
+						$name = sprintf('<span class="wcCurrentUser">%s</span>', $name);
+					}
+					
+					$user->name = $name;
+				}
+				$response['actions'] = array();
+				$response['actions']['refreshUsersList'] = array(
+					'data' => $users
+				);
+			}
 		}
     
 		// maintenance:
 		$this->bansDAO->deleteOldBans();
-		if (strlen($channel) > 0 && $this->usersDAO->shouldSignalActivity($channel)) {
-			$this->messagesDAO->addPingMessage($this->usersDAO->getUserName(), $channel);
-		}
     
 		echo json_encode($response);
 		die();
@@ -116,21 +124,24 @@ class WiseChatEndpoints {
 		if ($this->isChatDisabledForAnonymous()) {
 			die('{}');
 		}
-		
-		$_POST = stripslashes_deep($_POST);
     
 		$response = array();
 		$channel = trim($this->getPostParam('channel'));
 		$message = trim($this->getPostParam('message'));
+		$attachments = $this->getPostParam('attachments');
 		
 		if ($this->bansDAO->isIpBanned($_SERVER['REMOTE_ADDR'])) {
 			$response['error'] = $this->options->getOption('message_error_3', 'You were banned from posting messages');
 		} else {
-			if (strlen($message) > 0 && strlen($channel) > 0) {
+			if ((strlen($message) > 0 || count($attachments) > 0) && strlen($channel) > 0) {
 				$wiseChatCommandsResolver = new WiseChatCommandsResolver();
 				$isCommandResolved = $wiseChatCommandsResolver->resolve($this->usersDAO->getUserName(), $channel, $message);
 				if (!$isCommandResolved) {
-					$this->messagesDAO->addMessage($this->usersDAO->getUserName(), $channel, $message, false);
+					if ($this->options->isOptionEnabled('enable_images_uploader')) {
+						$this->messagesDAO->addMessageWithAttachments($this->usersDAO->getUserName(), $channel, $message, $attachments);
+					} else {
+						$this->messagesDAO->addMessage($this->usersDAO->getUserName(), $channel, $message);
+					}
 				}
 				$response['result'] = 'OK';
 			} else {
@@ -142,47 +153,79 @@ class WiseChatEndpoints {
 		die();
 	}
 	
-	private function changeUserName($userName) {
+	/**
+	* Endpoint for message deletion.
+	*
+	* @return null
+	*/
+	public function messageDeleteEndpoint() {
+		if ($this->isChatDisabledForAnonymous() || !$this->usersDAO->isWpUserAdminLogged()) {
+			die('{}');
+		}
+    
 		$response = array();
-		if (!$this->options->isOptionEnabled('allow_change_user_name')) {
-			$response['error'] = 'Unsupported operation';
-			return $response;
-		}
+		$channel = trim($this->getPostParam('channel'));
+		$messageId = trim($this->getPostParam('messageId'));
 		
-		$userName = trim($userName);
-		if (strlen($userName) == 0) {
-			$response['error'] = 'User name cannot be empty';
-			return $response;
-		}
-		
-		if (!preg_match('/^[a-zA-Z0-9\-_ ]+$/', $userName)) {
-			$response['error'] = $this->options->getOption('message_error_1', 'Only letters, number, spaces, hyphens and underscores are allowed');
-			return $response;
-		}
-		
-		$wpUser = $this->usersDAO->getWpUserByDisplayName($userName);
-		if ($wpUser !== null) {
-			$response['error'] = $this->options->getOption('message_error_2', 'This name is already occupied');
-			return $response;
-		}
-		
-		$oldUserName = $this->usersDAO->getUserName();
-		$this->usersDAO->setUserName($userName);
-		$newUserName = $this->usersDAO->getUserName();
-		
-		$messages = $this->messagesDAO->getLastMessagesByUserName($newUserName);
-		if (count($messages) > 0) {
-			$this->usersDAO->setUserName($oldUserName);
-			$response['error'] = $this->options->getOption('message_error_2', 'This name is already occupied');
-		} else {
-			$response['value'] = $newUserName;
+		if (strlen($messageId) > 0 && strlen($channel) > 0) {
+			$this->messagesDAO->deleteById($messageId);
+			$this->actionsDAO->publishAction('deleteMessage', array('id' => $messageId, 'channel' => $channel));
 			$response['result'] = 'OK';
+		} else {
+			$response['error'] = 'Missing required fields';
 		}
 		
-		return $response;
+		echo json_encode($response);
+		die();
+	}
+	
+	/**
+	* Endpoint for actions delivery.
+	*
+	* @return null
+	*/
+	public function actionsEndpoint() {
+		if ($this->isChatDisabledForAnonymous()) {
+			die('[]');
+		}
+		$lastId = intval($this->getGetParam('lastId', 0));
+		
+		echo json_encode($this->actionsDAO->getJsonReadyActions($lastId));
+		die();
+	}
+	
+	/**
+	* Endpoint for settings adjustments.
+	*
+	* @return null
+	*/
+	public function settingsEndpoint() {
+		if ($this->isChatDisabledForAnonymous()) {
+			die('{}');
+		}
+    
+		$response = array();
+		try {
+			switch ($this->getPostParam('property')) {
+				case 'userName':
+					$userService = new WiseChatUserService();
+					$response['value'] = $userService->changeUserName($this->getPostParam('value'));
+					break;
+			}
+		} catch (Exception $exception) {
+			$response['error'] = $exception->getMessage();
+		}	
+		
+		echo json_encode($response);
+		die();
 	}
 	
 	private function getPostParam($name, $default = null) {
+		if (!$this->arePostSlashesStripped) {
+			$_POST = stripslashes_deep($_POST);
+			$this->arePostSlashesStripped = true;
+		}
+	
 		return array_key_exists($name, $_POST) ? $_POST[$name] : $default;
 	}
 	
