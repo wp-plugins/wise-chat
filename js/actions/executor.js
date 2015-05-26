@@ -8,7 +8,7 @@
 function WiseChatActionsExecutor(options, wiseChatMessages) {
 	var REFRESH_TIMEOUT = 10000;
 	var lastId = options.lastActionId;
-	var endpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_actions_endpoint';
+	var endpoint = options.apiEndpointBase + '?action=wise_chat_actions_endpoint';
 	var isInitialized = false;
 	var request = null;
 	var idsCache = {};

@@ -44,7 +44,7 @@ class WiseChatWidget extends WP_Widget {
 		
 		$channel = $instance['channel'];
 	
-		$wiseChat = new WiseChat(plugin_dir_url(__FILE__));
+		$wiseChat = new WiseChat();
 		$wiseChat->render($channel);
 	
 		echo $after_widget;

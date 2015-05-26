@@ -14,9 +14,14 @@ class WiseChatOptions {
 	private static $instance;
 	
 	/**
-	* @var string Plugin's base directory
+	* @var string Plugin's base directory (WWW relative)
 	*/
 	private $baseDir;
+	
+	/**
+	* @var string Plugin's base directory
+	*/
+	private $pluginBaseDir;
 	
 	/**
 	* @var array Raw options array
@@ -29,7 +34,11 @@ class WiseChatOptions {
 	
 	public static function getInstance() {
 		if (self::$instance === null) {
-			self::$instance = new WiseChatOptions();
+			$instance = new WiseChatOptions();
+			$instance->baseDir = plugin_dir_url(dirname(__FILE__));
+			$instance->pluginBaseDir = dirname(dirname(__FILE__));
+			
+			self::$instance = $instance;
 		}
 		
 		return self::$instance;
@@ -39,8 +48,8 @@ class WiseChatOptions {
 		return $this->baseDir;
 	}
 	
-	public function setBaseDir($baseDir) {
-		$this->baseDir = $baseDir;
+	public function getPluginBaseDir() {
+		return $this->pluginBaseDir;
 	}
 	
 	/**
@@ -117,6 +126,27 @@ class WiseChatOptions {
 	*/
 	public function replaceOptions($options) {
 		$this->options = array_merge($this->options, $options);
+	}
+	
+	/**
+	* Sets option's value.
+	*
+	* @param string $name
+	* @param string $value
+	*
+	* @return null
+	*/
+	public function setOption($name, $value) {
+		$this->options[$name] = $value;
+	}
+	
+	/**
+	* Saves all options.
+	*
+	* @return null
+	*/
+	public function saveOptions() {
+		update_option(WiseChatSettings::OPTIONS_NAME, $this->options);
 	}
 	
 	/**

@@ -7,6 +7,7 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 abstract class WiseChatAbstractTab {
+
 	/**
 	* @var WiseChatBansDAO
 	*/
@@ -28,6 +29,11 @@ abstract class WiseChatAbstractTab {
 	protected $actionsDAO;
 	
 	/**
+	* @var WiseChatFiltersDAO
+	*/
+	protected $filtersDAO;
+	
+	/**
 	* @var WiseChatOptions
 	*/
 	protected $options;
@@ -38,6 +44,7 @@ abstract class WiseChatAbstractTab {
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->actionsDAO = new WiseChatActionsDAO();
+		$this->filtersDAO = new WiseChatFiltersDAO();
 	}
 	
 	/**
@@ -89,7 +96,7 @@ abstract class WiseChatAbstractTab {
 		foreach ($this->getFields() as $field) {
 			$id = $field[0];
 			$type = $field[3];
-			$value = $inputValue[$id];
+			$value = array_key_exists($id, $inputValue) ? $inputValue[$id] : '';
 			
 			switch ($type) {
 				case 'boolean':
@@ -169,6 +176,32 @@ abstract class WiseChatAbstractTab {
 		printf(
 			'<input type="checkbox" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="1" %s /><p class="description">%s</p>',
 			$id, $id, $this->options->isOptionEnabled($id, $defaultValue == 1) ? ' checked="1" ' : '', $hint
+		);
+	}
+	
+	/**
+	* Callback method for displaying select field with a hint. If the property is not defined the default value is used.
+	*
+	* @param array $args Array containing keys: id, name, hint, options
+	*
+	* @return null
+	*/
+	public function selectCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$options = $args['options'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$value = $this->options->getEncodedOption($id, $defaultValue);
+		
+		$optionsHtml = '';
+		foreach ($options as $name => $label) {
+			$optionsHtml .= sprintf("<option value='%s'%s>%s</option>", $name, $name == $value ? ' selected="1"' : '', $label);
+		}
+		
+		printf(
+			'<select id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]">%s</select><p class="description">%s</p>',
+			$id, $id, $optionsHtml, $hint
 		);
 	}
 }

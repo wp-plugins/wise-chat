@@ -1,10 +1,25 @@
 <?php
 
-require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
-require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
-require_once(dirname(__FILE__).'/dao/WiseChatBansDAO.php');
-require_once(dirname(__FILE__).'/messages/WiseChatImagesDownloader.php');
-require_once(dirname(__FILE__).'/services/WiseChatUserService.php');
+define('WC_ROOT', dirname(__FILE__).'/..');
+
+require_once(WC_ROOT.'/WiseChatOptions.php');
+require_once(WC_ROOT.'/WiseChatSettings.php');
+require_once(WC_ROOT.'/WiseChatInstaller.php');
+require_once(WC_ROOT.'/WiseChatThemes.php');
+
+require_once(WC_ROOT.'/dao/WiseChatActionsDAO.php');
+require_once(WC_ROOT.'/dao/WiseChatMessagesDAO.php');
+require_once(WC_ROOT.'/dao/WiseChatUsersDAO.php');
+require_once(WC_ROOT.'/dao/WiseChatBansDAO.php');
+require_once(WC_ROOT.'/dao/WiseChatFiltersDAO.php');
+require_once(WC_ROOT.'/dao/filters/WiseChatFilterChain.php');
+require_once(WC_ROOT.'/messages/WiseChatImagesDownloader.php');
+require_once(WC_ROOT.'/services/WiseChatUserService.php');
+require_once(WC_ROOT.'/commands/WiseChatCommandsResolver.php');
+require_once(WC_ROOT.'/rendering/WiseChatRenderer.php');
+require_once(WC_ROOT.'/rendering/filters/WiseChatLinksPreFilter.php');
+require_once(WC_ROOT.'/rendering/filters/WiseChatShortcodeConstructor.php');
+require_once(WC_ROOT.'/rendering/WiseChatTemplater.php');
 
 /**
  * Wise Chat endpoints class
@@ -60,9 +75,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messagesEndpoint() {
-		if ($this->isChatDisabledForAnonymous()) {
-			die('{}');
-		}
+		$this->accessCheck();
 		
 		$lastId = intval($this->getGetParam('lastId', 0));
 		$channel = $this->getGetParam('channel');
@@ -121,9 +134,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messageEndpoint() {
-		if ($this->isChatDisabledForAnonymous()) {
-			die('{}');
-		}
+		$this->accessCheck();
     
 		$response = array();
 		$channel = trim($this->getPostParam('channel'));
@@ -159,9 +170,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function messageDeleteEndpoint() {
-		if ($this->isChatDisabledForAnonymous() || !$this->usersDAO->isWpUserAdminLogged()) {
-			die('{}');
-		}
+		$this->adminAccessCheck();
     
 		$response = array();
 		$channel = trim($this->getPostParam('channel'));
@@ -185,9 +194,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function actionsEndpoint() {
-		if ($this->isChatDisabledForAnonymous()) {
-			die('[]');
-		}
+		$this->accessCheck();
 		$lastId = intval($this->getGetParam('lastId', 0));
 		
 		echo json_encode($this->actionsDAO->getJsonReadyActions($lastId));
@@ -200,9 +207,7 @@ class WiseChatEndpoints {
 	* @return null
 	*/
 	public function settingsEndpoint() {
-		if ($this->isChatDisabledForAnonymous()) {
-			die('{}');
-		}
+		$this->accessCheck();
     
 		$response = array();
 		try {
@@ -233,7 +238,15 @@ class WiseChatEndpoints {
 		return array_key_exists($name, $_GET) ? $_GET[$name] : $default;
 	}
 	
-	private function isChatDisabledForAnonymous() {
-		return $this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged();
+	private function accessCheck() {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			die('{ "error": "Access denied"}');
+		}
+	}
+	
+	private function adminAccessCheck() {
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged() || !$this->usersDAO->isWpUserAdminLogged()) {
+			die('{ "error": "Access denied"}');
+		}
 	}
 }

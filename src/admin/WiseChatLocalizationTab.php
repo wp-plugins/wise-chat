@@ -22,6 +22,7 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 				'message_submit_button_caption', 'Submit Button Caption', 'stringFieldCallback', 'string',
 				'Caption for message submit button'
 			),
+			array('window_title', 'Window Title', 'stringFieldCallback', 'string', 'Title of the messages window'),
 			array('message_save', '"Save" message', 'stringFieldCallback', 'string'),
 			array('message_name', '"Name" message', 'stringFieldCallback', 'string'),
 			array('message_customize', '"Customize" message', 'stringFieldCallback', 'string'),
@@ -46,7 +47,8 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			'message_error_1' => 'Only letters, number, spaces, hyphens and underscores are allowed',
 			'message_error_2' => 'This name is already occupied',
 			'message_error_3' => 'You were banned from posting messages',
-			'message_error_4' => 'Only logged in users are allowed to enter the chat'
+			'message_error_4' => 'Only logged in users are allowed to enter the chat',
+			'window_title' => ''
 		);
 	}
 }

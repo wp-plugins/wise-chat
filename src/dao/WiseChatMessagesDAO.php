@@ -75,6 +75,10 @@ class WiseChatMessagesDAO {
 			}
 		}
 		
+		// go through filters:
+		$filterChain = new WiseChatFilterChain();
+		$filteredMessage = $filterChain->filter($filteredMessage);
+		
 		// cut the message:
 		$messageMaxLength = $this->options->getIntegerOption('message_max_length', 100);
 		$filteredMessage = substr($filteredMessage, 0, $messageMaxLength);

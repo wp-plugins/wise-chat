@@ -5,16 +5,16 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 function WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter) {
-	var MESSAGES_REFRESH_TIMEOUT = 2000;
+	var MESSAGES_REFRESH_TIMEOUT = options.messagesRefreshTime;
 	
 	var lastId = options.lastId;
 	var idsCache = {};
 	var channel = options.channel;
 	var refresherInitialized = false;
 	
-	var messagesEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_messages_endpoint';
-	var messageEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_message_endpoint';
-	var messageDeleteEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_delete_message_endpoint';
+	var messagesEndpoint = options.apiEndpointBase + '?action=wise_chat_messages_endpoint';
+	var messageEndpoint = options.apiEndpointBase + '?action=wise_chat_message_endpoint';
+	var messageDeleteEndpoint = options.apiEndpointBase + '?action=wise_chat_delete_message_endpoint';
 	
 	var container = jQuery('#' + options.chatId);
 	var messagesContainer = container.find('.wcMessages');
@@ -98,6 +98,10 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 						idsCache[messageId] = true;
 					}
 				}
+				
+				if (response.result.length > 0) {
+					scrollMessages();
+				}
 			}
 			if (response.actions) {
 				for (var actionName in response.actions) {
@@ -106,11 +110,10 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 					}
 				}
 			}
-			initializeRefresher();
-			
-			if (response.result.length > 0) {
-				scrollMessages();
+			if (response.error) {
+				showErrorMessage(response.error);
 			}
+			initializeRefresher();
 		}
 		catch (e) {
 			showErrorMessage('Server error: ' + e.toString());
@@ -240,7 +243,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 			}
 		})
 		.success(function() {
-			jQuery(deleteButton).parent().remove();
+			hideMessage(messageId);
 		})
 		.error(function(jqXHR, textStatus, errorThrown) {
 			showErrorMessage('Server error occurred: ' + errorThrown);

@@ -4,6 +4,7 @@ require_once(dirname(__FILE__).'/filters/WiseChatFilter.php');
 require_once(dirname(__FILE__).'/filters/WiseChatLinksPostFilter.php');
 require_once(dirname(__FILE__).'/filters/WiseChatImagesPostFilter.php');
 require_once(dirname(__FILE__).'/filters/WiseChatEmoticonsFilter.php');
+require_once(dirname(__FILE__).'/filters/WiseChatHashtagsPostFilter.php');
 
 /**
  * Wise Chat message rendering class.
@@ -36,52 +37,22 @@ class WiseChatRenderer {
 	* @return string HTML source
 	*/
 	public function getRenderedMessage($message) {
-		$formated = $this->getAdminActions($message);
-		$formated .= $this->getRenderedMessageDateAndTime($message);
-		$formated .= $this->getRenderedUserName($message);
-		$formated .= $this->getRenderedMessageContent($message);
+		$templater = new WiseChatTemplater($this->options->getPluginBaseDir());
+		$templater->setTemplateFile(WiseChatThemes::getInstance()->getMessageTemplate());
 		
-		$messageClasses = array('wcMessage');
-		if ($this->usersDAO->getWpUserByDisplayName($message->user) !== null) {
-			$messageClasses[] = 'wcWpMessage';
-		}
-		if ($message->user == $this->usersDAO->getUserName()) {
-			$messageClasses[] = 'wcCurrentUserMessage';
-		}
+		$data = array(
+			'baseDir' => $this->options->getBaseDir(),
+			'messageId' => $message->id,
+			'messageUser' => $message->user,
+			'isAuthorWpUser' => $this->usersDAO->getWpUserByDisplayName($message->user) !== null,
+			'isAuthorCurrentUser' => $message->user == $this->usersDAO->getUserName(),
+			'showAdminActions' => $this->options->isOptionEnabled('enable_message_actions') && $this->usersDAO->isWpUserAdminLogged(),
+			'messageTimeUTC' => gmdate('c', $message->time),
+			'renderedUserName' => $this->getRenderedUserName($message),
+			'messageContent' => $this->getRenderedMessageContent($message)
+		);
 		
-		return sprintf('<div class="%s" data-id="%s">%s</div>', implode(' ', $messageClasses), $message->id, $formated);
-	}
-	
-	/**
-	* Returns buttons for admin actions.
-	*
-	* @param object $message Message details
-	*
-	* @return string HTML source
-	*/
-	private function getAdminActions($message) {
-		$html = '';
-		
-		if ($this->options->isOptionEnabled('enable_message_actions') && $this->usersDAO->isWpUserAdminLogged()) {
-			$filePath = sprintf("%s/gfx/icons/x.png", $this->options->getBaseDir());
-			$imgTag = sprintf("<img src='%s' class='wcIcon' />", $filePath);
-			$html .= sprintf('<a href="javascript://" class="wcAdminAction wcMessageDeleteButton" data-id="%d" title="Delete the message">%s</a> ', $message->id, $imgTag);
-		}
-		
-		return $html;
-	}
-	
-	/**
-	* Returns rendered date and time (UTC time) for the given message.
-	*
-	* @param object $message Message details
-	*
-	* @return string HTML source
-	*/
-	private function getRenderedMessageDateAndTime($message) {
-		$utcDateAndTime = gmdate('c', $message->time);
-		
-		return sprintf('<span class="wcMessageTime" data-utc="%s"></span> ', $utcDateAndTime, $utcDateAndTime);
+		return $templater->render($data);
 	}
 	
 	/**
@@ -92,11 +63,12 @@ class WiseChatRenderer {
 	* @return string HTML source
 	*/
 	private function getRenderedUserName($message) {
-		$wpUser = $this->usersDAO->getWpUserByDisplayName($message->user);
 		$formatedUserName = $message->user;
 		
 		if ($this->options->isOptionEnabled('link_wp_user_name')) {
 			$linkUserNameTemplate = $this->options->getOption('link_user_name_template', null);
+			$wpUser = $this->usersDAO->getWpUserByDisplayName($message->user);
+			
 			$userNameLink = null;
 			if ($linkUserNameTemplate != null) {
 				$variables = array('username' => $message->user, 'id' => $wpUser !== null ? $wpUser->ID : '');
@@ -110,7 +82,7 @@ class WiseChatRenderer {
 			}
 		}
 		
-		return '<span class="wcMessageUser">'.$formatedUserName.':</span> ';
+		return $formatedUserName;
 	}
 	
 	/**
@@ -128,6 +100,11 @@ class WiseChatRenderer {
 			$formatedMessageContent, $this->options->isOptionEnabled('allow_post_images'), $this->options->isOptionEnabled('allow_post_links')
 		);
 		
+		if ($this->options->isOptionEnabled('enable_twitter_hashtags')) {
+			$hashtagsPostFilter = new WiseChatHashtagsPostFilter();
+			$formatedMessageContent = $hashtagsPostFilter->filter($formatedMessageContent);
+		}
+		
 		if ($this->options->isOptionEnabled('emoticons_enabled', true)) {
 			$formatedMessageContent = WiseChatEmoticonsFilter::filter($formatedMessageContent);
 		}
@@ -136,7 +113,7 @@ class WiseChatRenderer {
 			$formatedMessageContent = str_replace("\n", '<br />', $formatedMessageContent);
 		}
 		
-		return sprintf('<span class="wcMessageContent">%s</span>', $formatedMessageContent);
+		return $formatedMessageContent;
 	}
 	
 	private function getTemplatedString($variables, $template) {

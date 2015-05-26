@@ -58,7 +58,6 @@ class WiseChatUsersDAO {
 		$filteredUserName = $badWordsFilter ? WiseChatFilter::filter($userName) : $userName;
 		
 		$_SESSION[self::USER_NAME_SESSION_KEY] = $filteredUserName;
-		unset($_SESSION[self::USER_AUTO_NAME_SESSION_KEY]);
 	}
 	
 	/**
@@ -125,7 +124,7 @@ class WiseChatUsersDAO {
 	*/
 	public function generateUserName() {
 		$this->startSession();
-
+		
 		if ($this->getUserName() === null) {
 			$lastNameId = intval(get_option(self::LAST_NAME_ID_OPTION, 1)) + 1;
 			update_option(self::LAST_NAME_ID_OPTION, $lastNameId);
@@ -167,6 +166,8 @@ class WiseChatUsersDAO {
 	* @return boolean
 	*/
 	public function shouldTriggerEvent($eventGroup, $eventId) {
+		$this->startSession();
+		
 		$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
 		if (!array_key_exists($sessionKey, $_SESSION)) {
 			$_SESSION[$sessionKey] = time();
@@ -190,6 +191,8 @@ class WiseChatUsersDAO {
 	* @return null
 	*/
 	public function resetEventTracker($eventGroup, $eventId) {
+		$this->startSession();
+		
 		$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
 		if (array_key_exists($sessionKey, $_SESSION)) {
 			unset($_SESSION[$sessionKey]);
@@ -203,6 +206,8 @@ class WiseChatUsersDAO {
 	* @return integer
 	*/
 	public function incrementAndGetAbusesCounter() {
+		$this->startSession();
+		
 		$key = self::ABUSES_COUNTER_SESSION_KEY;
 		if (!array_key_exists($key, $_SESSION)) {
 			$_SESSION[$key] = 1;
@@ -219,6 +224,8 @@ class WiseChatUsersDAO {
 	* @return null
 	*/
 	public function clearAbusesCounter() {
+		$this->startSession();
+		
 		$_SESSION[self::ABUSES_COUNTER_SESSION_KEY] = 0;
 	}
 	
@@ -268,6 +275,8 @@ class WiseChatUsersDAO {
 	* @return null
 	*/
 	private function setOriginalUserName($userName) {
+		$this->startSession();
+		
 		$_SESSION[self::USER_AUTO_NAME_SESSION_KEY] = $userName;
 	}
 	

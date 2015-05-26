@@ -5,7 +5,7 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 function WiseChatSettings(options, messages) {
-	var settingsEndpoint = options.siteURL + '/wp-admin/admin-ajax.php?action=wise_chat_settings_endpoint';
+	var settingsEndpoint = options.apiEndpointBase + '?action=wise_chat_settings_endpoint';
 	var container = jQuery('#' + options.chatId);
 	var currentUserName = container.find('.wcCurrentUserName');
 	var customizeButton = container.find('a.wcCustomizeButton');

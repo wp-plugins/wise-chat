@@ -26,8 +26,10 @@ class WiseChatSettings {
 		'wise-chat-messages' => 'Messages',
 		'wise-chat-appearance' => 'Appearance',
 		'wise-chat-channels' => 'Channels',
+		'wise-chat-filters' => 'Filters',
 		'wise-chat-bans' => 'Bans',
 		'wise-chat-localization' => 'Localization',
+		'wise-chat-advanced' => 'Advanced',
 	);
 	
 	/**
@@ -64,6 +66,7 @@ class WiseChatSettings {
 				$args = array('id' => $field[0]);
 				$args['name'] = array_key_exists(1, $field) ? $field[1] : '';
 				$args['hint'] = array_key_exists(4, $field) ? $field[4] : '';
+				$args['options'] = array_key_exists(5, $field) ? $field[5] : array();
 				
 				add_settings_field($field[0], $field[1], array($tabObject, $field[2]), $key, $sectionKey, $args);
 			}
@@ -172,6 +175,7 @@ class WiseChatSettings {
 		foreach ($this->tabs as $tabKey => $tabCaption) {
 			$sanitized = array_merge($sanitized, $this->getTabObject($tabKey)->sanitizeOptionValue($input));
 		}
+		$sanitized = array_merge(get_option(self::OPTIONS_NAME, array()), $sanitized);
 		
 		return $sanitized;
 	}

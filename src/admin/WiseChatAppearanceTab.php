@@ -10,6 +10,7 @@ class WiseChatAppearanceTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
+			array('theme', 'Theme', 'selectCallback', 'string', 'Current theme', WiseChatThemes::getAllThemes()),
 			array('background_color', 'Background Color <br />(messages window)', 'colorFieldCallback', 'string', 'Background color of the messages window'),
 			array('background_color_input', 'Background Color <br />(message input field)', 'colorFieldCallback', 'string', 'Background color of the message input field'),
 			array('text_color', 'Text Color', 'colorFieldCallback', 'string', 'Text color of the messages, inputs and labels'),
@@ -29,6 +30,7 @@ class WiseChatAppearanceTab extends WiseChatAbstractTab {
 	
 	public function getDefaultValues() {
 		return array(
+			'theme' => '',
 			'background_color' => '',
 			'background_color_input' => '',
 			'text_color' => '',

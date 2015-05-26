@@ -3,8 +3,8 @@ Contributors: marcin.lawrowski
 Donate link: http://kaine.pl/projects/wp-plugins/wise-chat-donate
 Tags: chat, plugin, ajax, javascript, shortcode, social, widget, responsive
 Requires at least: 3.6
-Tested up to: 4.1
-Stable tag: 1.5.0
+Tested up to: 4.2
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,6 +18,7 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * easy installation using widget, shortcode or function (PHP)
 * fully responsive and mobile ready
 * no server required
+* three themes ready to use
 * multiple channels (chat rooms) support
 * channels statistics (active users, published messages)
 * channels moderation (removing single messages)
@@ -26,6 +27,7 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * posting pictures from camera (images uploader)
 * multiple chat instances on the same page
 * language localization for end-users
+* custom filters (modifying messages on the fly)
 * built-in bad words filter (supports English and Polish languages)
 * flexible cofiguration page (general settings, messages posting control, appearance, channels statistics, bans control and localization)
 * colors adjustments
@@ -37,8 +39,11 @@ The plugin displays a fully customizable chat window on WordPress pages, posts o
 * chat user settings (e.g. name changing)
 * list of current users
 * messages history (recently published messages in input field)
+* Twitter hash tags support
 
-All settings are available on `Settings -> Wise Chat Settings` page. See screenshots for detailed features. 
+All settings are available on `Settings -> Wise Chat Settings` page. 
+
+**See screenshots for detailed features.**
 
 == Installation ==
 
@@ -48,9 +53,12 @@ All settings are available on `Settings -> Wise Chat Settings` page. See screens
 1. Alternatively install it in your templates via `<?php if (function_exists('wise_chat')) { wise_chat(); } ?>` code.
 1. Alternatively install it using dedicated widget in `Appearance -> Widgets`, it's called `Wise Chat Window`.
 
+= Requirements: =
+* jQuery JS library (available in most themes)
+* mbstring PHP extension (in order to use all features of bad words filter)
+
 = Post Installation Notices: =
-* After installation go to Settings -> Wise Chat Settings page, select Localization tab and translate all messages into your own language. 
-* In order to use all features of bad words filter you need to have `mbstring` PHP extension installed on your server. 
+* After installation go to Settings -> Wise Chat Settings page, select Localization tab and translate all messages into your own language.
 * Posting pictures from camera / local storage is limited to the specific range of Web browsers. See FAQ for details.
 
 == Frequently Asked Questions ==
@@ -86,27 +94,44 @@ Yes, they are. Here is an example with full range of options:
 `[wise-chat channel="my-channel" 
 restrict_to_wp_users="0"
 messages_limit="30"
-message_max_length="400"
-filter_bad_words="1"
-allow_post_links="0"
-background_color="#e5e5e5"
-background_color_input="#e2e2e2"
-text_color="#042393"
-text_color_logged_user="#dd3333"
-show_message_submit_button="1"
+message_max_length="500"
+allow_post_links="1"
+allow_post_images="1"
+enable_images_uploader="1"
+enable_message_actions="0"
+enable_twitter_hashtags="1"
+theme="colddark"
+background_color=""
+background_color_input=""
+text_color=""
+text_color_logged_user=""
+chat_width="100%"
+chat_height="270px"
+window_title="Wise Chat Room"
 show_user_name="1"
 link_wp_user_name="0"
-allow_change_user_name="0"
+link_user_name_template="http://my.website.com/users/{username}/profile"
+show_message_submit_button="1"
+allow_change_user_name="1"
+emoticons_enabled="1"
+multiline_support="0"
+show_users="0"
+filter_bad_words="1"
+enable_autoban="0"
+autoban_threshold="3"
 hint_message="Enter message here"
 user_name_prefix="Anonymous"
 message_submit_button_caption="Send"
 message_save="Save"
 message_name="Name"
 message_customize="Customize"
+message_sending="Sending ..."
 message_error_1="Only letters, number, spaces, hyphens and underscores are allowed"
 message_error_2="This name is already occupied"
 message_error_3="You were banned from posting messages"
-message_error_4="Only logged in users are allowed to enter the chat"]`
+message_error_4="Only logged in users are allowed to enter the chat"
+ajax_engine="lightweight"
+messages_refresh_time="3000"]`
 
 = How to ban a user? =
 
@@ -156,25 +181,40 @@ The option requires a few prerequisites in order to operate correctly: GD and Cu
 
 By default all images open using Lightbox library but only if the library is installed. Without Lightbox each image opens in the new tab / window.
 
-= Images uploader does not work. What is wrong? =
+= Image uploader does not work. What is wrong? =
 
 Uploading of images is supported in the following Web browsers: IE 10+, Firefox 31+, Chrome 31+, Safari 7+, Opera 27+, iOS Safari 7.1+, Android Browser 4.1+, Chrome For Android 41+.
 
+= How can I replace specific phrase in every message posted by users? =
+
+You can use filters feature. Go to Settings -> Wise Chat Settings, select Filters tab and add new filter. From now each occurence of the phrase will be replaced by desired text in every message that is posted to any chat channel. 
+
+= Chat window is showing up but it does not work. I cannot receive or send messages. What is wrong? =
+
+Ensure that jQuery library is installed in your theme. Wise Chat cannot operate without jQuery. 
+
+= Wise Chat plugin is making a lot of long-running HTTP requests. How to improve the performance? =
+
+Every 3 seconds the plugin checks for new messages using AJAX request. By default admin-ajax.php is used as a backend script and this script has poor performance. However, it is the most compatible solution. If you want to reduce server load try to change "AJAX Engine" property to "Lightweight AJAX". It can be set on Settings -> Wise Chat Settings page, select Advanced tab and then select "Lightweight AJAX" from the dropdown list. This option enables dedicated backend script that has a lot better performance. 
 
 == Screenshots ==
 
-01. The chat after installation.
-02. Multiple chats on the same page.
-03. Customizations.
-04. Custom user name, list of users, WordPress user highlighted, submit button, posting pictures and links
-05. General settings.
-06. Messages settings.
-07. Appearance adjustments.
-08. Channels statistics.
-09. Bans control.
-10. Localizations for end-user.
+01. Simple configuration
+02. Pictures posting, links, customizations, users list
+03. Themes comparison: Default, Light Gray, Cold Dark
+04. Preview on mobile - Light Gray theme
+05. Preview on mobile - Cold Dark theme
+06. Settings page - compilation of all tabs
 
 == Changelog ==
+
+= 1.6 =
+* Three themes
+* Twitter hash tags support
+* Custom filters (filtering texts, hyperlinks, e-mails and phrases that match a regular expressions)
+* Chat window title
+* Advanced configuration (AJAX engine and refresh time)
+* Lightweight AJAX engine
 
 = 1.5 =
 * Posting images (stored in Media Library)
