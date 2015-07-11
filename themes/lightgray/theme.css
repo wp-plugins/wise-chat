@@ -52,6 +52,10 @@
 	padding: 0px;
 }
 
+.wcContainer .wcUsersCounter {
+	margin-bottom: 3px; margin-right: 10px; font-size: 80%;
+}
+
 .wcContainer .wcMessage .wcAdminAction:hover {
 	border: 1px solid #e1e8ed;
 }
@@ -102,6 +106,16 @@
 
 .wcContainer .wcMessages .wcMessage .wcMessageContent .wcAdminAction {
 	float: right; 
+}
+
+.wcContainer .wcCustomizationsPanel {
+	-webkit-border-radius: 3px; -moz-border-radius: 3px; border-radius: 3px; 
+	background-color: #fff; background-image: none; background-repeat: none; border: none;
+	padding: 4px;
+}
+
+.wcContainer .wcCustomizationsPanel .wcCustomizationsProperty:not(:last-child) {
+	border-bottom: 1px solid #e1e8ed; padding-bottom: 4px;
 }
 
 .wcContainer .wcControls .wcCurrentUserName {

@@ -46,6 +46,10 @@
 	background-color: #333; color: #cfcfcf; border: 1px solid #333; border-top: 1px solid #444; border-bottom: 1px solid #444;
 }
 
+.wcContainer .wcUsersCounter {
+	margin-bottom: 3px; margin-right: 10px; font-size: 80%;
+}
+
 .wcContainer .wcMessage .wcAdminAction:hover {
 	border: 1px solid #444;
 }
@@ -88,6 +92,10 @@
 
 .wcContainer .wcMessages .wcMessage .wcMessageContent .wcAdminAction {
 	float: right; 
+}
+
+.wcContainer .wcMessages .wcErrorMessage {
+	color: #ff0000;
 }
 
 .wcContainer .wcControls .wcCurrentUserName {

@@ -4,8 +4,9 @@
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
-function WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter) {
+function WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter, notifier) {
 	var MESSAGES_REFRESH_TIMEOUT = options.messagesRefreshTime;
+	var MESSAGES_ORDER = options.messagesOrder;
 	
 	var lastId = options.lastId;
 	var idsCache = {};
@@ -19,19 +20,64 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	var container = jQuery('#' + options.chatId);
 	var messagesContainer = container.find('.wcMessages');
 	var usersListContainer = container.find('.wcUsersList');
+	var usersCounter = container.find('.wcUsersCounter span');
 	var messagesInput = container.find('.wcInput');
 	var isMessageMultiline = messagesInput.is("textarea");
 	var submitButton = container.find('.wcSubmitButton');
 	var currentRequest = null;
 	
+	function isAscendingOrder() {
+		return MESSAGES_ORDER == 'ascending';
+	}
+	
+	/**
+	* Moves the scrollbar to the top (descending order mode) or to the bottom (ascending order mode).
+	*/
 	function scrollMessages() {
-		setTimeout(function() { messagesContainer.scrollTop(messagesContainer[0].scrollHeight); }, 200);
+		var scrollPosition = isAscendingOrder() ? messagesContainer[0].scrollHeight : 0;
+		
+		setTimeout(function() { setMessagesScollPosition(scrollPosition); }, 200);
 	};
+	
+	/**
+	* Checks whether the scrollbar is set to the top (descending order mode) or to the bottom (ascending order mode).
+	* 
+	* @return {Boolean}
+	*/
+	function isFullyScrolled() {
+		if (isAscendingOrder()) {
+			return (messagesContainer.height() + messagesContainer.scrollTop()) == messagesContainer[0].scrollHeight;
+		} else {
+			return messagesContainer.scrollTop() == 0;
+		}
+	};
+	
+	function setMessagesScollPosition(scrollPosition) {
+		messagesContainer.scrollTop(scrollPosition);
+	}
+	
+	/**
+	 * Corrects position of the scrollbar when new messages are appended or prepended.
+	 * It prevents from slight movement of the scrollbar.
+	 * 
+	 * @param {Integer} previousMessagesScrollPosition Previous position of the scrollbar
+	 * @param {Integer} previousMessagesScrollHeight Previous height of the scroll area
+	 */
+	function correctMessagesScrollPosition(previousMessagesScrollPosition, previousMessagesScrollHeight) {
+		var messagesNewScrollHeight = messagesContainer[0].scrollHeight;
+		var scrollDifference = isAscendingOrder() ? 0 : messagesNewScrollHeight - previousMessagesScrollHeight;
+		setMessagesScollPosition(previousMessagesScrollPosition + scrollDifference);
+	}
 	
 	function showMessage(message) {
 		var parsedMessage = jQuery(message);
-		messagesContainer.append(parsedMessage);
+		if (isAscendingOrder()) {
+			messagesContainer.append(parsedMessage);
+		} else {
+			messagesContainer.prepend(parsedMessage);
+		}
 		convertUTCMessagesTime(parsedMessage);
+		notifier.sendNotifications();
 	};
 	
 	function hideMessage(messageId) {
@@ -43,7 +89,13 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	}
 	
 	function showErrorMessage(message) {
-		messagesContainer.append('<div class="wcMessage wcErrorMessage">' + message + '</div>');
+		message = '<div class="wcMessage wcErrorMessage">' + message + '</div>';
+		if (isAscendingOrder()) {
+			messagesContainer.append(message);
+		} else {
+			messagesContainer.prepend(message);
+		}
+		scrollMessages();
 	};
 	
 	function setBusyState() {
@@ -86,7 +138,15 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	function onNewMessagesArrived(result) {
 		try {
 			var response = jQuery.parseJSON(result);
-			if (response.result) {
+			if (response.result && response.result.length > 0) {
+				var wasFullyScrolled = isFullyScrolled();
+				var messagesScrollPosition = messagesContainer.scrollTop();
+				var messagesScrollHeight = messagesContainer[0].scrollHeight;
+				
+				if (!isAscendingOrder()) {
+					response.result.reverse();
+				}
+				
 				for (var x = 0; x < response.result.length; x++) {
 					var msg = response.result[x];
 					var messageId = msg['id'];
@@ -99,14 +159,20 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 					}
 				}
 				
-				if (response.result.length > 0) {
+				if (wasFullyScrolled) {
 					scrollMessages();
+				} else {
+					correctMessagesScrollPosition(messagesScrollPosition, messagesScrollHeight);
 				}
 			}
+			
 			if (response.actions) {
 				for (var actionName in response.actions) {
 					if (actionName == 'refreshUsersList') {
 						refreshUsersList(response.actions['refreshUsersList'].data);
+					}
+					if (actionName == 'refreshUsersCounter') {
+						refreshUsersCounter(response.actions['refreshUsersCounter'].data);
 					}
 				}
 			}
@@ -126,12 +192,13 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 			var response = jQuery.parseJSON(result);
 			if (response.error) {
 				showErrorMessage(response.error);
+			} else {
+				checkNewMessages();
 			}
 		}
 		catch (e) {
 			showErrorMessage('Unknown error occurred: ' + e.toString());
 		}
-		scrollMessages();
 	};
 	
 	function sendMessageRequest(message, channel, attachments) {
@@ -149,7 +216,6 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		.error(function(jqXHR, textStatus, errorThrown) {
 			setIdleState();
 			showErrorMessage('Server error occurred: ' + errorThrown);
-			scrollMessages();
 		});
 	};
 	
@@ -219,6 +285,14 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		usersListContainer.html(users.join('<br />'));
 	}
 	
+	function refreshUsersCounter(data) {
+		if (options.channelUsersLimit > 0) {
+			usersCounter.html(data.total + " / " + options.channelUsersLimit);
+		} else {
+			usersCounter.html(data.total);
+		}
+	}
+	
 	function onWindowResize() {
 		if (container.width() < 300) {
 			container.addClass('wcWidth300');
@@ -247,7 +321,6 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		})
 		.error(function(jqXHR, textStatus, errorThrown) {
 			showErrorMessage('Server error occurred: ' + errorThrown);
-			scrollMessages();
 		});
 	}
 	

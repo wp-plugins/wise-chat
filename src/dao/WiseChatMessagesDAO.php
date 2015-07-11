@@ -75,6 +75,19 @@ class WiseChatMessagesDAO {
 			}
 		}
 		
+		// flood control feature:
+		if ($this->options->isOptionEnabled('enable_flood_control')) {
+			$floodControlThreshold = $this->options->getIntegerOption('flood_control_threshold', 200);
+			$floodControlTimeFrame = $this->options->getIntegerOption('flood_control_time_frame', 1);
+			if ($floodControlThreshold > 0 && $floodControlTimeFrame > 0) {
+				$messagesAmount = $this->getMessagesCountByIpAndTimeThreshold($this->getRemoteAddress(), $floodControlTimeFrame);
+				if ($messagesAmount > $floodControlThreshold) {
+					$duration = $this->bansDAO->getDurationFromString('1d');
+					$this->bansDAO->createAndSave($this->getRemoteAddress(), $duration);
+				}
+			}
+		}
+		
 		// go through filters:
 		$filterChain = new WiseChatFilterChain();
 		$filteredMessage = $filterChain->filter($filteredMessage);
@@ -175,6 +188,7 @@ class WiseChatMessagesDAO {
 	public function getMessages($channel, $fromId = null) {
 		global $wpdb;
 		
+		$order = $this->options->getEncodedOption('messages_order', '');
 		$limit = $this->options->getIntegerOption('messages_limit', 100);
 		$channel = addslashes($channel);
 		$table = WiseChatInstaller::getMessagesTable();
@@ -196,7 +210,65 @@ class WiseChatMessagesDAO {
 		
 		$messages = $wpdb->get_results($sql);
 		
-		return array_reverse($messages, true);
+		return $order == 'descending' ? $messages : array_reverse($messages, true);
+	}
+	
+	/**
+	* Returns all messages older than given amount of minutes.
+	*
+	* @param integer $minutes
+	*
+	* @return array
+	*/
+	public function getMessagesByTimeThreshold($minutes) {
+		global $wpdb;
+		
+		$limit = 1000;
+		$threshold = time() - $minutes * 60;
+		$table = WiseChatInstaller::getMessagesTable();
+		
+		$conditions = array();
+		$conditions[] = "text != '".self::SYSTEM_PING_MESSAGE."'";
+		$conditions[] = "time < {$threshold}";
+		
+		$sql = "SELECT * FROM {$table} ".
+				" WHERE ".implode(" AND ", $conditions).
+				" LIMIT {$limit};";
+		$messages = $wpdb->get_results($sql);
+		
+		return $messages;
+	}
+	
+	/**
+	* Returns amount of messages for given IP and time threshold in minutes.
+	*
+	* @param string $ipAddress
+	* @param integer $timeThresholdInMinutes
+	*
+	* @return integer
+	*/
+	public function getMessagesCountByIpAndTimeThreshold($ipAddress, $timeThresholdInMinutes) {
+		global $wpdb;
+		
+		$threshold = time() - $timeThresholdInMinutes * 60;
+		$table = WiseChatInstaller::getMessagesTable();
+		
+		$conditions = array();
+		$conditions[] = "text != '".self::SYSTEM_PING_MESSAGE."'";
+		$conditions[] = "ip = '".$ipAddress."'";
+		$conditions[] = "time >= {$threshold}";
+		
+		$sql = "SELECT count(*) AS quantity FROM {$table} ".
+				" WHERE ".implode(" AND ", $conditions);
+				
+		$results = $wpdb->get_results($sql);
+		
+		if (is_array($results) && count($results) > 0) {
+			$result = $results[0];
+			return $result->quantity;
+		}
+		
+		return 0;
 	}
 	
 	/**
@@ -384,6 +456,36 @@ class WiseChatMessagesDAO {
 			$table = WiseChatInstaller::getMessagesTable();
 			$wpdb->get_results("DELETE FROM {$table} WHERE id = '$id';");
 		}
+	}
+	
+	/**
+	* Deletes all messages older than given amount of minutes.
+	*
+	* @param integer $minutes
+	*
+	* @return null
+	*/
+	public function deleteByTimeThreshold($minutes) {
+		global $wpdb;
+		
+		$threshold = time() - $minutes * 60;
+		
+		$table = WiseChatInstaller::getMessagesTable();
+		$wpdb->get_results("DELETE FROM {$table} WHERE time < {$threshold};");
+	}
+	
+	/**
+	* Deletes all ping messages of given user.
+	*
+	* @param string $userName
+	*
+	* @return null
+	*/
+	public function deletePingMessagesByUserName($userName) {
+		global $wpdb;
+		
+		$table = WiseChatInstaller::getMessagesTable();
+		$wpdb->get_results(sprintf("DELETE FROM %s WHERE text = '%s' AND user = '%s';", $table, self::SYSTEM_PING_MESSAGE, $userName));
 	}
 	
 	private function getRemoteAddress() {

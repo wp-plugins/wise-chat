@@ -71,14 +71,19 @@ class WiseChatRenderer {
 			
 			$userNameLink = null;
 			if ($linkUserNameTemplate != null) {
-				$variables = array('username' => $message->user, 'id' => $wpUser !== null ? $wpUser->ID : '');
+				$variables = array(
+					'id' => $wpUser !== null ? $wpUser->ID : '',
+					'username' => $wpUser !== null ? $wpUser->user_login : $message->user,
+					'displayname' => $wpUser !== null ? $wpUser->display_name : $message->user
+				);
+				
 				$userNameLink = $this->getTemplatedString($variables, $linkUserNameTemplate);
 			} else if ($wpUser !== null) {
 				$userNameLink = get_author_posts_url($wpUser->ID, $message->user);
 			}
 			
 			if ($userNameLink != null) {
-				$formatedUserName = sprintf("<a href='%s' rel='nofollow'>%s</a>", $userNameLink, $formatedUserName);
+				$formatedUserName = sprintf("<a href='%s' target='_blank' rel='nofollow'>%s</a>", $userNameLink, $formatedUserName);
 			}
 		}
 		

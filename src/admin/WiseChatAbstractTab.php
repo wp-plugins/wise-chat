@@ -79,9 +79,18 @@ abstract class WiseChatAbstractTab {
 	/**
 	* Returns an array of default values of fields.
 	*
-	* @return null
+	* @return array
 	*/
 	public abstract function getDefaultValues();
+	
+	/**
+	* Returns an array of parent fields.
+	*
+	* @return array
+	*/
+	public function getParentFields() {
+		return array();
+	}
 	
 	/**
 	* Filters values of fields.
@@ -95,6 +104,10 @@ abstract class WiseChatAbstractTab {
 		
 		foreach ($this->getFields() as $field) {
 			$id = $field[0];
+			if ($id === WiseChatSettings::SECTION_FIELD_KEY) {
+				continue;
+			}
+			
 			$type = $field[3];
 			$value = array_key_exists($id, $inputValue) ? $inputValue[$id] : '';
 			
@@ -111,6 +124,17 @@ abstract class WiseChatAbstractTab {
 					if (isset($inputValue[$id])) {
 						$newInputValue[$id] = sanitize_text_field($value);
 					}
+					break;
+				case 'multilinestring':
+					if (isset($inputValue[$id])) {
+						$newInputValue[$id] = $value;
+					}
+					break;
+				case 'multivalues':
+					if (isset($inputValue[$id]) && is_array($inputValue[$id])) {
+						$newInputValue[$id] = $inputValue[$id];
+					}
+					
 					break;
 			}
 		}
@@ -130,10 +154,37 @@ abstract class WiseChatAbstractTab {
 		$hint = $args['hint'];
 		$defaults = $this->getDefaultValues();
 		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" /><p class="description">%s</p>',
+			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" /><p class="description">%s</p>',
 			$id, $id,
+			$this->options->getEncodedOption($id, $defaultValue),
+			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
+			$parentId != null ? $parentId : '',
+			$hint
+		);
+	}
+	
+	/**
+	* Callback method for displaying multiline text field with a hint. If the property is not defined the default value is used.
+	*
+	* @param array $args Array containing keys: id, name and hint
+	*
+	* @return null
+	*/
+	public function multilineFieldCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$parentId = $this->getFieldParent($id);
+		
+		printf(
+			'<textarea id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" cols="70" rows="6" %s data-parent-field="%s">%s</textarea><p class="description">%s</p>',
+			$id, $id,
+			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
+			$parentId != null ? $parentId : '',
 			$this->options->getEncodedOption($id, $defaultValue),
 			$hint
 		);
@@ -151,11 +202,14 @@ abstract class WiseChatAbstractTab {
 		$hint = $args['hint'];
 		$defaults = $this->getDefaultValues();
 		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" class="wc-color-picker" /><p class="description">%s</p>',
+			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" class="wc-color-picker" /><p class="description">%s</p>',
 			$id, $id,
 			$this->options->getEncodedOption($id, $defaultValue),
+			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
+			$parentId != null ? $parentId : '',
 			$hint
 		);
 	}
@@ -172,10 +226,15 @@ abstract class WiseChatAbstractTab {
 		$hint = $args['hint'];
 		$defaults = $this->getDefaultValues();
 		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="checkbox" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="1" %s /><p class="description">%s</p>',
-			$id, $id, $this->options->isOptionEnabled($id, $defaultValue == 1) ? ' checked="1" ' : '', $hint
+			'<input type="checkbox" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="1" %s  %s data-parent-field="%s" /><p class="description">%s</p>',
+			$id, $id, 
+			$this->options->isOptionEnabled($id, $defaultValue == 1) ? ' checked="1" ' : '',
+			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
+			$parentId != null ? $parentId : '',
+			$hint
 		);
 	}
 	
@@ -193,6 +252,7 @@ abstract class WiseChatAbstractTab {
 		$defaults = $this->getDefaultValues();
 		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
 		$value = $this->options->getEncodedOption($id, $defaultValue);
+		$parentId = $this->getFieldParent($id);
 		
 		$optionsHtml = '';
 		foreach ($options as $name => $label) {
@@ -200,8 +260,67 @@ abstract class WiseChatAbstractTab {
 		}
 		
 		printf(
-			'<select id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]">%s</select><p class="description">%s</p>',
-			$id, $id, $optionsHtml, $hint
+			'<select id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" %s data-parent-field="%s">%s</select><p class="description">%s</p>',
+			$id, $id,
+			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
+			$parentId != null ? $parentId : '',
+			$optionsHtml, $hint
 		);
+	}
+	
+	/**
+	* Callback method for displaying list of checkboxes with a hint.
+	*
+	* @param array $args Array containing keys: id, name, hint, options
+	*
+	* @return null
+	*/
+	public function checkboxesCallback($args) {
+		$id = $args['id'];
+		$hint = $args['hint'];
+		$options = $args['options'];
+		$defaults = $this->getDefaultValues();
+		$defaultValue = array_key_exists($id, $defaults) ? $defaults[$id] : '';
+		$values = $this->options->getOption($id, $defaultValue);
+		$parentId = $this->getFieldParent($id);
+		
+		$html = '';
+		foreach ($options as $key => $value) {
+			$html .= sprintf(
+				'<label><input type="checkbox" value="%s" name="%s[%s][]" %s %s data-parent-field="%s" />%s</label>&nbsp;&nbsp; ', 
+				$key, WiseChatSettings::OPTIONS_NAME, $id, 
+				in_array($value, $values) ? 'checked="1"' : '',
+				$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? 'disabled="1"' : '',
+				$parentId != null ? $parentId : '',
+				$value
+			);
+		}
+		
+		printf(sprintf('%s<p class="description">%s</p>', $html, $hint));
+	}
+	
+	/**
+	* Callback method for displaying separator.
+	*
+	* @param array $args Array containing keys: name
+	*
+	* @return null
+	*/
+	public function separatorCallback($args) {
+		$name = $args['name'];
+		
+		printf(
+			'<p class="description">%s</p>',
+			$name
+		);
+	}
+	
+	protected function getFieldParent($fieldId) {
+		$parents = $this->getParentFields();
+		if (is_array($parents) && array_key_exists($fieldId, $parents)) {
+			return $parents[$fieldId];
+		}
+		
+		return null;
 	}
 }

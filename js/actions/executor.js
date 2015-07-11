@@ -54,6 +54,9 @@ function WiseChatActionsExecutor(options, wiseChatMessages) {
 							case 'deleteMessage':
 								deleteMessageAction(action.command.data);
 								break;
+							case 'deleteMessages':
+								deleteMessagesAction(action.command.data);
+								break;
 							case 'deleteAllMessagesFromChannel':
 								deleteAllMessagesFromChannelAction(action.command.data);
 								break;
@@ -72,6 +75,12 @@ function WiseChatActionsExecutor(options, wiseChatMessages) {
 	
 	function deleteMessageAction(data) {
 		wiseChatMessages.hideMessage(data.id);
+	}
+	
+	function deleteMessagesAction(data) {
+		for (var x = 0; x < data.ids.length; x++) {
+			wiseChatMessages.hideMessage(data.ids[x]);
+		}
 	}
 	
 	function deleteAllMessagesFromChannelAction(data) {

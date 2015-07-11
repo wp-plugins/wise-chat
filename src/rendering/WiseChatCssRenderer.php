@@ -55,6 +55,19 @@ class WiseChatCssRenderer {
 	}
 	
 	/**
+	* Returns custom CSS styles definition for the plugin.
+	*
+	* @return string HTML source
+	*/
+	public function getCustomCssDefinition() {
+		if ($this->options->isOptionNotEmpty('custom_styles')) {
+			return sprintf("<style type='text/css'>\n%s\n</style>", $this->options->getOption('custom_styles'));
+		}
+		
+		return '';
+	}
+	
+	/**
 	* Adds single style definition.
 	*
 	* @param string $cssSelector

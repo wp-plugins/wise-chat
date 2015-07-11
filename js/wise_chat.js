@@ -6,11 +6,12 @@
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 function WiseChatController(options) {
+	var notifier = new WiseChatNotifier(options);
 	var messagesHistory = new WiseChatMessagesHistory();
 	var imageViewer = new WiseChatImageViewer();
 	var dateFormatter = new WiseChatDateFormatter();
 	var messageAttachments = new WiseChatMessageAttachments(options, imageViewer);
-	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter);
+	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter, notifier);
 	var settings = new WiseChatSettings(options, messages);
 	var actionsExecutor = new WiseChatActionsExecutor(options, messages);
 	
@@ -275,3 +276,100 @@ function WiseChatImageViewer() {
 	this.show = show;
 	this.hide = hide;
 };
+
+/**
+ * WiseChatNotifier - window title and sound notifiers.
+ *
+ * @version 1.0
+ * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ */
+function WiseChatNotifier(options) {
+	var isWindowFocused = true;
+	var isTitleNotificationVisible = false;
+	var rawTitle = document.title;
+	var notificationNumber = 0;
+	var soundNotification = null;
+	
+	function initializeSoundFeatures() {
+		var soundFile = options.soundNotification;
+		
+		if (soundFile != null && soundFile.length > 0) {
+			soundNotification = jQuery('#wcMessagesNotificationAudio');
+			if (soundNotification.length > 0) {
+				return;
+			}
+			
+			var soundFileURLWav = options.baseDir + 'sounds/' + soundFile + '.wav';
+			var soundFileURLMp3 = options.baseDir + 'sounds/' + soundFile + '.mp3';
+			var soundFileURLOgg = options.baseDir + 'sounds/' + soundFile + '.ogg';
+			var container = jQuery('body');
+			
+			container.append(
+				'<audio id="wcMessagesNotificationAudio" preload="auto">' +
+					'<source src="' + soundFileURLWav + '" type="audio/x-wav" />' +
+					'<source src="' + soundFileURLOgg + '" type="audio/ogg" />' +
+					'<source src="' + soundFileURLMp3 + '" type="audio/mpeg" />' +
+				'</audio>'
+			);
+			soundNotification = jQuery('#wcMessagesNotificationAudio');
+		}
+	}
+	
+	function playSoundNotification() {
+		if (soundNotification !== null && soundNotification[0].play) {
+			soundNotification[0].play();
+		}
+	}
+	
+	function showTitleNotification() {
+		if (!isTitleNotificationVisible) {
+			isTitleNotificationVisible = true;
+			rawTitle = document.title;
+		}
+		notificationNumber++;
+		document.title = '(' + notificationNumber + ') (!) ' + rawTitle;
+		setTimeout(function() { showTitleNotificationAnimStep1(); }, 1500);
+	}
+	
+	function showTitleNotificationAnimStep1() {
+		if (isTitleNotificationVisible) {
+			document.title = '(' + notificationNumber + ') ' + rawTitle;
+		}
+	}
+	
+	function hideTitleNotification() {
+		if (isTitleNotificationVisible) {
+			document.title = rawTitle;
+			isTitleNotificationVisible = false;
+			notificationNumber = 0;
+		}
+	}
+	
+	function onWindowBlur() {
+		isWindowFocused = false;
+	}
+	
+	function onWindowFocus() {
+		isWindowFocused = true;
+		hideTitleNotification();
+	}
+	
+	function sendNotifications() {
+		if (options.enableTitleNotifications && !isWindowFocused) {
+			showTitleNotification();
+		}
+		if (!options.userSettings.muteSounds) {
+			playSoundNotification();
+		}
+	}
+	
+	// start-up actions:
+	initializeSoundFeatures();
+	
+	// DOM events:
+	jQuery(window).blur(onWindowBlur);
+	jQuery(window).focus(onWindowFocus);
+	
+	// public API:
+	this.sendNotifications = sendNotifications;
+}

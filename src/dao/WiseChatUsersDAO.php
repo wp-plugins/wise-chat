@@ -11,9 +11,17 @@ class WiseChatUsersDAO {
 	const USER_NAME_SESSION_KEY = 'wise_chat_user_name';
 	const USER_AUTO_NAME_SESSION_KEY = 'wise_chat_user_name_auto';
 	const EVENT_TIME_SESSION_KEY = 'wise_chat_activity_time';
-	const EVENT_TIME_THRESHOLD = 120;
-	const CURRENT_USERS_TESTING_TIMEFRAME = 180;
 	const ABUSES_COUNTER_SESSION_KEY = 'wise_chat_ban_detector_counter';
+	const CURRENT_USERS_TESTING_TIMEFRAME = 80;
+	
+	/**
+	* @var array Events thresholds in minutes
+	*/
+	private $eventTimeThresholds = array(
+		'usersList' => 20,
+		'ping' => 40,
+		'default' => 120
+	);
 	
 	/**
 	* @var WiseChatOptions
@@ -83,24 +91,61 @@ class WiseChatUsersDAO {
 	* @return WP_User|null
 	*/
 	public function getWpUserByDisplayName($displayName) {
+		global $wpdb;
 		static $wpUsersCache = array();
 		
 		if (array_key_exists($displayName, $wpUsersCache)) {
 			return $wpUsersCache[$displayName];
 		}
+
+		$userRow = $wpdb->get_row($wpdb->prepare(
+			"SELECT `ID` FROM {$wpdb->users} WHERE `display_name` = %s", $displayName
+		));
+		if ($userRow === null) {
+			$wpUsersCache[$displayName] = null;
+		} else {
+			$userObject = null;
+			$args = array(
+				'search' => $userRow->ID,
+				'search_columns' => array('ID')
+			);
+			$users = new WP_User_Query($args);
+			if (count($users->results) > 0) {
+				$userObject = $users->results[0];
+			}
+			$wpUsersCache[$displayName] = $userObject;
+		}
+		
+		return $wpUsersCache[$displayName];
+	}
+	
+	/**
+	* Retuns WP user by user_login field. Result is cached in static field.
+	*
+	* @param string $userLogin
+	*
+	* @return WP_User|null
+	*/
+	public function getWpUserByLogin($userLogin) {
+		global $wpdb;
+		static $wpUsersCache = array();
+		
+		if (array_key_exists($userLogin, $wpUsersCache)) {
+			return $wpUsersCache[$userLogin];
+		}
 		
 		$userObject = null;
 		$args = array(
-			'search' => $displayName,
-			'search_fields' => array('display_name')
+			'search' => $userLogin,
+			'search_columns' => array('user_login')
 		);
 		$users = new WP_User_Query($args);
 		if (count($users->results) > 0) {
 			$userObject = $users->results[0];
 		}
-		$wpUsersCache[$displayName] = $userObject;
+		$wpUsersCache[$userLogin] = $userObject;
 		
-		return $userObject;
+		return $wpUsersCache[$userLogin];
 	}
 	
 	/**
@@ -174,7 +219,7 @@ class WiseChatUsersDAO {
 			return true;
 		}
 		$diff = time() - $_SESSION[$sessionKey];
-		if ($diff > self::EVENT_TIME_THRESHOLD) {
+		if ($diff > $this->getEventTimeThreshold($eventGroup)) {
 			$_SESSION[$sessionKey] = time();
 			return true;
 		}
@@ -230,7 +275,7 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Returns users from given channel from last CURRENT_USERS_TESTING_TIMEFRAME seconds.
+	* Returns users of given channel from the last CURRENT_USERS_TESTING_TIMEFRAME seconds.
 	*
 	* @param string $channel Channel
 	*
@@ -245,13 +290,74 @@ class WiseChatUsersDAO {
 		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
 		$conditions[] = "time > {$timeFrame}";
 		$conditions[] = "channel = '{$channel}'";
-		$conditions[] = "user != 'System'";
+		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
 		$sql = "SELECT DISTINCT user AS name FROM {$table} ".
 				" WHERE ".implode(" AND ", $conditions).
 				" ORDER BY user ASC ".
 				" LIMIT 1000;";
 				
 		return $wpdb->get_results($sql);
+	}
+	
+	/**
+	* Returns the amount of users of given channel from the last CURRENT_USERS_TESTING_TIMEFRAME seconds.
+	*
+	* @param string $channel Channel
+	*
+	* @return integer
+	*/
+	public function getAmountOfCurrentUsersOfChannel($channel) {
+		global $wpdb;
+		
+		$table = WiseChatInstaller::getMessagesTable();
+		
+		$conditions = array();
+		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
+		$conditions[] = "time > {$timeFrame}";
+		$conditions[] = "channel = '{$channel}'";
+		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
+		$sql = "SELECT count(DISTINCT user) AS quantity FROM {$table} ".
+				" WHERE ".implode(" AND ", $conditions);
+				
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			$result = $results[0];
+			return $result->quantity;
+		}
+		
+		return 0;
+	}
+	
+	/**
+	* Determines whether the given user has any ping messages in the channel.
+	*
+	* @param string $channel Name of the channel
+	* @param string $userName Name of the user
+	*
+	* @return boolean
+	*/
+	public function hasUserPingMessages($channel, $userName) {
+		global $wpdb;
+		
+		$userName = addslashes($userName);
+		$channel = addslashes($channel);
+		$table = WiseChatInstaller::getMessagesTable();
+		
+		$conditions = array();
+		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
+		$conditions[] = "time > {$timeFrame}";
+		$conditions[] = "channel = '{$channel}'";
+		$conditions[] = "user = '{$userName}'";
+		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
+		$sql = "SELECT count(DISTINCT user) AS quantity FROM {$table} WHERE ".implode(" AND ", $conditions);
+				
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			$result = $results[0];
+			return $result->quantity > 0;
+		}
+		
+		return false;
 	}
 	
 	/**
@@ -283,6 +389,21 @@ class WiseChatUsersDAO {
 	private function startSession() {
 		if (!isset($_SESSION)) {
 			session_start();
+		}
+	}
+	
+	/**
+	* Returns time threshold for given event group.
+	*
+	* @param string $eventGroup Name of the event group
+	*
+	* @return integer
+	*/
+	private function getEventTimeThreshold($eventGroup) {
+		if (array_key_exists($eventGroup, $this->eventTimeThresholds)) {
+			return $this->eventTimeThresholds[$eventGroup];
+		} else {
+			return $this->eventTimeThresholds['default'];
 		}
 	}
 }

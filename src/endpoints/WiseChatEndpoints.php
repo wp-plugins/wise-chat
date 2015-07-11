@@ -14,7 +14,10 @@ require_once(WC_ROOT.'/dao/WiseChatBansDAO.php');
 require_once(WC_ROOT.'/dao/WiseChatFiltersDAO.php');
 require_once(WC_ROOT.'/dao/filters/WiseChatFilterChain.php');
 require_once(WC_ROOT.'/messages/WiseChatImagesDownloader.php');
+require_once(WC_ROOT.'/services/WiseChatService.php');
 require_once(WC_ROOT.'/services/WiseChatUserService.php');
+require_once(WC_ROOT.'/services/WiseChatBansService.php');
+require_once(WC_ROOT.'/services/WiseChatMessagesService.php');
 require_once(WC_ROOT.'/commands/WiseChatCommandsResolver.php');
 require_once(WC_ROOT.'/rendering/WiseChatRenderer.php');
 require_once(WC_ROOT.'/rendering/filters/WiseChatLinksPreFilter.php');
@@ -54,6 +57,26 @@ class WiseChatEndpoints {
 	private $renderer;
 	
 	/**
+	* @var WiseChatBansService
+	*/
+	private $bansService;
+	
+	/**
+	* @var WiseChatMessagesService
+	*/
+	private $messagesService;
+	
+	/**
+	* @var WiseChatUserService
+	*/
+	private $userService;
+	
+	/**
+	* @var WiseChatService
+	*/
+	private $service;
+	
+	/**
 	* @var WiseChatOptions
 	*/
 	private $options;
@@ -67,6 +90,12 @@ class WiseChatEndpoints {
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->actionsDAO = new WiseChatActionsDAO();
 		$this->renderer = new WiseChatRenderer();
+		$this->bansService = new WiseChatBansService();
+		$this->messagesService = new WiseChatMessagesService();
+		$this->userService = new WiseChatUserService();
+		$this->service = new WiseChatService();
+		
+		$this->userService->initializeCookie();
 	}
 	
 	/**
@@ -103,26 +132,38 @@ class WiseChatEndpoints {
 				$response['result'][] = $messageToJson;
 			}
 			
-			// additional data:
-			if ($this->options->isOptionEnabled('show_users') && $this->usersDAO->shouldTriggerEvent('usersList', $channel)) {
-				$users = $this->usersDAO->getCurrentUsersOfChannel($channel);
-				foreach ($users as $user) {
-					$name = htmlspecialchars($user->name, ENT_QUOTES, 'UTF-8');
-					if ($this->usersDAO->getUserName() == $user->name) {
-						$name = sprintf('<span class="wcCurrentUser">%s</span>', $name);
+			$response['actions'] = array();
+			if ($this->usersDAO->shouldTriggerEvent('usersList', $channel)) {
+				// users list:
+				if ($this->options->isOptionEnabled('show_users')) {
+					$users = $this->usersDAO->getCurrentUsersOfChannel($channel);
+					foreach ($users as $user) {
+						$name = htmlspecialchars($user->name, ENT_QUOTES, 'UTF-8');
+						if ($this->usersDAO->getUserName() == $user->name) {
+							$name = sprintf('<span class="wcCurrentUser">%s</span>', $name);
+						}
+						
+						$user->name = $name;
 					}
-					
-					$user->name = $name;
+					$response['actions']['refreshUsersList'] = array(
+						'data' => $users
+					);
 				}
-				$response['actions'] = array();
-				$response['actions']['refreshUsersList'] = array(
-					'data' => $users
-				);
+				
+				// users counter:
+				if ($this->options->isOptionEnabled('show_users_counter')) {
+					$response['actions']['refreshUsersCounter'] = array(
+						'data' => array(
+							'total' => $this->usersDAO->getAmountOfCurrentUsersOfChannel($channel)
+						)
+					);
+				}
 			}
 		}
     
 		// maintenance:
-		$this->bansDAO->deleteOldBans();
+		$this->messagesService->periodicMaintenance();
+		$this->bansService->periodicMaintenance();
     
 		echo json_encode($response);
 		die();
@@ -202,7 +243,7 @@ class WiseChatEndpoints {
 	}
 	
 	/**
-	* Endpoint for settings adjustments.
+	* Endpoint for user's settings adjustments.
 	*
 	* @return null
 	*/
@@ -211,11 +252,15 @@ class WiseChatEndpoints {
     
 		$response = array();
 		try {
-			switch ($this->getPostParam('property')) {
+			$property = $this->getPostParam('property');
+			$value = $this->getPostParam('value');
+			$channel = $this->getPostParam('channel');
+			switch ($property) {
 				case 'userName':
-					$userService = new WiseChatUserService();
-					$response['value'] = $userService->changeUserName($this->getPostParam('value'));
+					$response['value'] = $this->userService->changeUserName($value, $channel);
 					break;
+				default:
+					$this->userService->setUserPropertySetting($property, $value);
 			}
 		} catch (Exception $exception) {
 			$response['error'] = $exception->getMessage();
@@ -241,6 +286,10 @@ class WiseChatEndpoints {
 	private function accessCheck() {
 		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
 			die('{ "error": "Access denied"}');
+		}
+		
+		if (!$this->service->isChatOpen()) {
+			die(sprintf('{ "error": "%s" }', $this->options->getEncodedOption('message_error_5', 'The chat is closed now')));
 		}
 	}
 	

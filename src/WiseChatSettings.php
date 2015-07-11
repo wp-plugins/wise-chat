@@ -18,6 +18,8 @@ class WiseChatSettings {
 	const SESSION_MESSAGE_KEY = 'wc_plugin_data_messages_update';
 	const SESSION_MESSAGE_ERROR_KEY = 'wc_plugin_data_messages_error';
 	
+	const SECTION_FIELD_KEY = '_section';
+	
 	/**
 	* @var array Tabs definition
 	*/
@@ -63,12 +65,22 @@ class WiseChatSettings {
 			
 			$fields = $tabObject->getFields();
 			foreach ($fields as $field) {
-				$args = array('id' => $field[0]);
-				$args['name'] = array_key_exists(1, $field) ? $field[1] : '';
-				$args['hint'] = array_key_exists(4, $field) ? $field[4] : '';
-				$args['options'] = array_key_exists(5, $field) ? $field[5] : array();
+				$id = $field[0];
+				$name = $field[1];
 				
-				add_settings_field($field[0], $field[1], array($tabObject, $field[2]), $key, $sectionKey, $args);
+				if ($id === self::SECTION_FIELD_KEY) {
+					$sectionKey = "section_{$key}_".md5($name);
+					add_settings_section($sectionKey, $name, null, $key);
+				} else {
+					$args = array(
+						'id' => $id,
+						'name' => $name,
+						'hint' => array_key_exists(4, $field) ? $field[4] : '',
+						'options' => array_key_exists(5, $field) ? $field[5] : array()
+					);
+				
+					add_settings_field($id, $name, array($tabObject, $field[2]), $key, $sectionKey, $args);
+				}
 			}
 		}
 	}
@@ -97,6 +109,11 @@ class WiseChatSettings {
 		?>
 			<div class="wrap">
 				<h2><?php echo self::MENU_TITLE ?></h2>
+				<div style="float: right;">
+					<span style="padding-top: 5px; display: inline-block;">Do you like the plugin? Make a donation to <strong>help me improve</strong> Wise Chat. </span>
+					<a class="button-secondary" style="border-color: #11f; color: #005" href="http://kaine.pl/projects/wp-plugins/wise-chat/wise-chat-donate">Make a Donation!</a>
+				</div>
+				<br style="clear:both" />
 				<?php $this->renderTabs(); ?>
 				<form method="post" action="options.php">
 					<?php settings_fields(self::OPTIONS_GROUP); ?>

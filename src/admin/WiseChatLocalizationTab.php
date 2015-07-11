@@ -27,11 +27,15 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			array('message_name', '"Name" message', 'stringFieldCallback', 'string'),
 			array('message_customize', '"Customize" message', 'stringFieldCallback', 'string'),
 			array('message_sending', '"Sending" message', 'stringFieldCallback', 'string'),
+			array('message_mute_sounds', '"Mute sounds" message', 'stringFieldCallback', 'string'),
+			array('message_total_users', '"Total users" message', 'stringFieldCallback', 'string'),
 			
 			array('message_error_1', 'Message error #1', 'stringFieldCallback', 'string', 'Message: "Only letters, number, spaces, hyphens and underscores are allowed"'),
 			array('message_error_2', 'Message error #2', 'stringFieldCallback', 'string', 'Message: "This name is already occupied"'),
 			array('message_error_3', 'Message error #3', 'stringFieldCallback', 'string', 'Message: "You were banned from posting messages"'),
 			array('message_error_4', 'Message error #4', 'stringFieldCallback', 'string', 'Message: "Only logged in users are allowed to enter the chat"'),
+			array('message_error_5', 'Message error #5', 'stringFieldCallback', 'string', 'Message: "The chat is closed now"'),
+			array('message_error_6', 'Message error #6', 'stringFieldCallback', 'string', 'Message: "The chat is full now. Try again later."'),
 		);
 	}
 	
@@ -48,7 +52,11 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			'message_error_2' => 'This name is already occupied',
 			'message_error_3' => 'You were banned from posting messages',
 			'message_error_4' => 'Only logged in users are allowed to enter the chat',
-			'window_title' => ''
+			'message_error_5' => 'The chat is closed now',
+			'message_error_6' => 'The chat is full now. Try again later.',
+			'window_title' => '',
+			'message_mute_sounds' => 'Mute sounds',
+			'message_total_users' => 'Total users'
 		);
 	}
 }

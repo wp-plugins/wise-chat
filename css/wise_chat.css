@@ -60,6 +60,14 @@
 	border: 1px solid #dfdfdf; overflow: auto; 	background-color: #fff; margin: 5px 0px; padding: 0px 5px;
 }
 
+.wcContainer .wcUsersCounter {
+	float: right; font-size: 80%;
+}
+
+.wcContainer .wcUsersCounter span {
+	font-weight: bold;
+}
+
 .wcErrorMessage {
 	color: #ff0000;
 }
@@ -145,4 +153,19 @@ a.wcImageUploadClear:hover {
 
 .wcImagePreview img {
 	border-radius: none; box-shadow: none; border: none;
+}
+
+.wcCustomizations label {
+	display: inline;
+}
+
+
+.wcCustomizations input[type="checkbox"] {
+	vertical-align: middle;
+	width: 15px;
+	height: 15px;
+}
+
+.wcContainer .wcCustomizationsPanel .wcCustomizationsProperty:not(:last-child) {
+	margin-bottom: 4px;
 }
