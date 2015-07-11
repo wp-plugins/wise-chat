@@ -6,14 +6,166 @@
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 
-.wcMessages {
-	width: 100%; height: 200px; overflow: auto; border: 1px solid #dfdfdf; padding: 5px; background-color: #fff; margin: 5px 0px;
+/* Commons: */
+.wcContainer * {
+	-moz-box-sizing: border-box; box-sizing: border-box; color: #111;
 }
 
-.wcContainer input {
+.wcContainer .wcIcon {
+	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 2px;
+}
+
+.wcMessage .wcAdminAction {
+	border: 1px solid transparent; padding: 2px;
+}
+
+.wcMessage .wcAdminAction:hover {
+	border: 1px solid #dfdfdf;
+}
+
+.wcMessage .wcEmoticon {
+	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 4px;
+}
+
+.wcMessage .wcImage {
+	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 4px;
+}
+
+.wcWidth300 .wcMessageContent {
+	display: block; border-bottom: 1px solid #f3f3f3; margin-bottom: 5px; padding-bottom: 5px;
+}
+
+.wcContainer .wcClear {
+	clear: both; line-height: 0.1%; font-size: 0.1%; height: 0.1%;
+}
+
+/* Container: */
+.wcContainer {
 	width: 100%;
+}
+
+/* Messages list: */
+.wcContainer .wcMessages {
+	width: 100%; height: 200px; overflow: auto; 
+	border: 1px solid #dfdfdf; background-color: #fff; margin: 5px 0px; padding: 0px 5px;
+}
+
+/* Users list: */
+.wcUsersListIncluded .wcMessages {
+	float: left; width: 70%;
+}
+
+.wcUsersListIncluded .wcUsersList {
+	float: right; width: 29%; height: 200px; 
+	border: 1px solid #dfdfdf; overflow: auto; 	background-color: #fff; margin: 5px 0px; padding: 0px 5px;
+}
+
+.wcContainer .wcUsersCounter {
+	float: right; font-size: 80%;
+}
+
+.wcContainer .wcUsersCounter span {
+	font-weight: bold;
 }
 
 .wcErrorMessage {
 	color: #ff0000;
+}
+
+.wcCurrentUserMessage .wcMessageUser {
+	font-weight: bold;
+}
+
+.wcUsersList .wcCurrentUser {
+	font-weight: bold;
+}
+
+.wcContainer input.wcInput, .wcContainer textarea.wcInput {
+	width: 100%;
+}
+
+.wcCustomizations a {
+	font-size: 80%;
+}
+
+.wcUserName {
+	margin-right: 5px;
+}
+
+.wcControlsButtonsIncluded .wcCurrentUserName {
+	display: block;
+}
+
+.wcControlsButtonsIncluded .wcInputContainer {
+	overflow: hidden; padding-right: 5px; 
+}
+
+.wcControlsButtonsIncluded input.wcInput, .wcControlsButtonsIncluded textarea.wcInput {
+	width: 100%;
+}
+
+.wcControlsButtonsIncluded input.wcSubmitButton {
+	float: right;
+}
+
+/* Attachments */
+.wcControlsButtonsIncluded a.wcAddImageAttachment {
+	float: right; margin-right: 5px; cursor: pointer; display: inline-block; width: 38px; height: 32px; border: 1px solid transparent; padding: 0px 3px;
+	background:  url('../gfx/icons/camera.png') center center no-repeat;
+}
+
+.wcControlsButtonsIncluded a.wcAddImageAttachment:hover {
+	border: 1px solid #dfdfdf;
+}
+
+a.wcAddImageAttachment {
+    position: relative; overflow: hidden;
+}
+
+a.wcAddImageAttachment input {
+    position: absolute; top: 0; bottom: 0; left: 0; right: 0; opacity: 0.001; cursor: pointer; z-index: 1000;
+}
+
+a.wcImageUploadClear {
+	border: 1px solid transparent;
+}
+
+a.wcImageUploadClear:hover {
+	border: 1px solid #dfdfdf;
+}
+
+.wcMessageAttachments {
+	margin-top: 2px;
+}
+
+.wcMessageAttachments .wcImageUploadPreview {
+	max-width: 70px; max-height: 50px; cursor: pointer; display: inline-block; vertical-align: middle; margin-right: 3px;
+}
+
+/* Image viewer: */
+.wcImagePreviewFade { 
+    display: none; position: fixed; top: 0%; left: 0%; width: 100%; height: 100%; background-color: #000; z-index:1001; -moz-opacity: 0.7; opacity:.70; filter: alpha(opacity=70);
+}
+
+.wcImagePreview {
+    display: none; position: absolute; left: 50%; top: 50%; padding: 0px; border: none; background: transparent; z-index:1002; overflow:visible;
+}
+
+.wcImagePreview img {
+	border-radius: none; box-shadow: none; border: none;
+}
+
+.wcCustomizations label {
+	display: inline;
+}
+
+
+.wcCustomizations input[type="checkbox"] {
+	vertical-align: middle;
+	width: 15px;
+	height: 15px;
+}
+
+.wcContainer .wcCustomizationsPanel .wcCustomizationsProperty:not(:last-child) {
+	margin-bottom: 4px;
 }

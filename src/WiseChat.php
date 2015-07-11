@@ -1,5 +1,21 @@
 <?php
 
+require_once(dirname(__FILE__).'/WiseChatThemes.php');
+require_once(dirname(__FILE__).'/dao/WiseChatMessagesDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatActionsDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatUsersDAO.php');
+require_once(dirname(__FILE__).'/dao/WiseChatFiltersDAO.php');
+require_once(dirname(__FILE__).'/dao/filters/WiseChatFilterChain.php');
+require_once(dirname(__FILE__).'/rendering/WiseChatRenderer.php');
+require_once(dirname(__FILE__).'/rendering/WiseChatCssRenderer.php');
+require_once(dirname(__FILE__).'/rendering/WiseChatTemplater.php');
+require_once(dirname(__FILE__).'/rendering/filters/WiseChatLinksPreFilter.php');
+require_once(dirname(__FILE__).'/rendering/filters/WiseChatShortcodeConstructor.php');
+require_once(dirname(__FILE__).'/services/WiseChatService.php');
+require_once(dirname(__FILE__).'/services/WiseChatBansService.php');
+require_once(dirname(__FILE__).'/services/WiseChatUserService.php');
+require_once(dirname(__FILE__).'/services/WiseChatMessagesService.php');
+
 /**
  * Wise Chat core class.
  *
@@ -7,26 +23,89 @@
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
 class WiseChat {
-	private $baseDir;
+	
+	/**
+	* @var WiseChatOptions
+	*/
 	private $options;
 	
-	public function __construct($baseDir) {
-		$this->baseDir = $baseDir;
-		$this->options = get_option('wise_chat_options_name');
+	/**
+	* @var WiseChatMessagesDAO
+	*/
+	private $messagesDAO;
+	
+	/**
+	* @var WiseChatUsersDAO
+	*/
+	private $usersDAO;
+	
+	/**
+	* @var WiseChatActionsDAO
+	*/
+	private $actionsDAO;
+	
+	/**
+	* @var WiseChatRenderer
+	*/
+	private $renderer;
+	
+	/**
+	* @var WiseChatCssRenderer
+	*/
+	private $cssRenderer;
+	
+	/**
+	* @var WiseChatBansService
+	*/
+	private $bansService;
+	
+	/**
+	* @var WiseChatUserService
+	*/
+	private $userService;
+	
+	/**
+	* @var WiseChatMessagesService
+	*/
+	private $messagesService;
+	
+	/**
+	* @var WiseChatService
+	*/
+	private $service;
+	
+	public function __construct() {
+		$this->options = WiseChatOptions::getInstance();
+		$this->messagesDAO = new WiseChatMessagesDAO();
+		$this->usersDAO = new WiseChatUsersDAO();
+		$this->actionsDAO = new WiseChatActionsDAO();
+		$this->renderer = new WiseChatRenderer();
+		$this->cssRenderer = new WiseChatCssRenderer();
+		$this->bansService = new WiseChatBansService();
+		$this->userService = new WiseChatUserService();
+		$this->messagesService = new WiseChatMessagesService();
+		$this->service = new WiseChatService();
+		
+		$this->userService->initializeCookie();
 	}
 	
 	public function initializeCore() {
 		add_action('wp_enqueue_scripts', array($this, 'enqueueScripts'));
 		
-		$this->generateUserName();
-		add_action('plugins_loaded', array($this, 'generateLoggedUserName'));
+		$this->usersDAO->generateUserName();
+		add_action('after_setup_theme', array($this->usersDAO, 'generateLoggedUserName'));
 		
 		add_shortcode('wise-chat', array($this, 'renderShortcode'));
 	}
 	
 	public function enqueueScripts() {
-		wp_enqueue_script('wise_chat_core',  $this->baseDir.'js/wise_chat.js', array());
-		wp_enqueue_style('wise_chat_core', $this->baseDir.'css/wise_chat.css');
+		wp_enqueue_script('wise_chat_messages_history',  $this->options->getBaseDir().'js/utils/messages_history.js', array());
+		wp_enqueue_script('wise_chat_messages',  $this->options->getBaseDir().'js/ui/messages.js', array());
+		wp_enqueue_script('wise_chat_settings',  $this->options->getBaseDir().'js/ui/settings.js', array());
+		wp_enqueue_script('wise_chat_actions_executor',  $this->options->getBaseDir().'js/actions/executor.js', array());
+		wp_enqueue_script('wise_chat_core',  $this->options->getBaseDir().'js/wise_chat.js', array());
+		wp_enqueue_style('wise_chat_core', $this->options->getBaseDir().'css/wise_chat.css');
+		wp_enqueue_style('wise_chat_theme', $this->options->getBaseDir().WiseChatThemes::getInstance()->getCss());
 	}
 	
 	public function render($channel = null) {
@@ -41,247 +120,134 @@ class WiseChat {
 			'channel' => 'global',
 		), $atts));
 		
-		$this->options = array_merge($this->options, $atts);
+		$this->options->replaceOptions($atts);
    
-		return $this->getRenderedChat($channel);;
-	}
-	
-	public function getCurrentUserName() {
-		$this->startSession();
-		
-		if (array_key_exists('wise_chat_user_name', $_SESSION)) {
-			return $_SESSION['wise_chat_user_name'];
-		} else {
-			return null;
-		}
-	}
-	
-	public function getAjaxMessages() {
-		$lastId = intval($this->getGetParam('lastId', 0));
-		$channel = $this->getGetParam('channel');
-		
-		$response = array();
-		$response['result'] = array();
-		if (strlen($channel) > 0) {	
-			$messages = $this->getMessages($channel, $lastId > 0 ? $lastId : null);
-			foreach ($messages as $message) {
-				// ommit non-admin messages:
-				if ($message->admin == 1 && !$this->isWpUserAdminLogged()) {
-					continue;
-				}
-				
-				$messageToJson = array();
-				$messageToJson['text'] = $this->getRenderedMessage($message);
-				$messageToJson['id'] = $message->id;
-				
-				$response['result'][] = $messageToJson;
-			}
-		}
-    
-		echo json_encode($response);
-		die();
-	}
-	
-	public function handleAjaxMessage() {
-		$_POST = stripslashes_deep($_POST);
-    
-		$response = array();
-		$channel = $this->getPostParam('channel');
-		$message = $this->getPostParam('message');
-		
-		$ban = $this->getBanByIp($_SERVER['REMOTE_ADDR']);
-		if ($ban != null) {
-			$response['error'] = 'You were banned from posting messages';
-		} else {
-			if (strlen($message) > 0 && strlen($channel) > 0) {
-			
-				$wiseChatCommandsResolver = new WiseChatCommandsResolver($this);
-				$isCommandResolved = $wiseChatCommandsResolver->resolve($this->getCurrentUserName(), $channel, $message);
-				if (!$isCommandResolved) {
-					$this->addMessage($this->getCurrentUserName(), $channel, $message, false);
-				}
-				$response['result'] = 'OK';
-			} else {
-				$response['error'] = 'Missing required fields';
-			}
-		}
-		
-		echo json_encode($response);
-		die();
-	}
-	
-	public function addMessage($user, $channel, $message, $isAdmin = false) {
-		global $wpdb;
-		
-		$badWordsFilter = $this->options['filter_bad_words'] == '1' && $isAdmin == 0;
-		$table = WiseChatInstaller::getMessagesTable();
-		$wpdb->insert($table,
-			array(
-				'time' => time(),
-				'admin' => $isAdmin ? 1 : 0,
-				'user' => $user,
-				'text' => $badWordsFilter ? WiseChatFilter::filter($message) : $message,
-				'channel' => $channel,
-				'ip' => $_SERVER['REMOTE_ADDR']
-			)
-		);
+		return $this->getRenderedChat($channel);
 	}
 	
 	private function getRenderedChat($channel = null) {
-		$outString = '';
-
-		if ($channel === null) {
-			$channel = 'global';
+		if ($this->options->isOptionEnabled('restrict_to_wp_users') && !$this->usersDAO->isWpUserLogged()) {
+			return sprintf("<div class='wcAccessDenied'>%s</div>", $this->options->getOption('message_error_4', 'Only logged in users are allowed to enter the chat'));
 		}
-		$chatId = 'wc'.md5(uniqid('', true));
 		
-		$messages = $this->getMessages($channel);
-		$messagesRendering = '';
+		if (!$this->service->isChatOpen()) {
+			return sprintf("<div class='wcChatClosed'>%s</div>", $this->options->getOption('message_error_5', 'The chat is closed now'));
+		}
+		
+		if ($this->service->isChatChannelFull($channel)) {
+			return sprintf("<div class='wcChatFull'>%s</div>", $this->options->getOption('message_error_6', 'The chat is full now. Try again later.'));
+		}
+		
+		$channel = $this->getValidChannel($channel);
+		$chatId = $this->getChatID();
+		
+		$this->userService->startUpMaintenance($channel);
+		$this->bansService->startUpMaintenance();
+		$this->messagesService->startUpMaintenance();
+		
+		$messages = $this->messagesDAO->getMessages($channel);
+		$renderedMessages = '';
 		$lastId = 0;
 		foreach ($messages as $message) {
 			// ommit non-admin messages:
-			if ($message->admin == 1 && !$this->isWpUserAdminLogged()) {
+			if ($message->admin == 1 && !$this->usersDAO->isWpUserAdminLogged()) {
 				continue;
 			}
 				
-			$messagesRendering .= $this->getRenderedMessage($message);
-			$messagesRendering .= "<br />";
-			$lastId = $message->id;
+			$renderedMessages .= $this->renderer->getRenderedMessage($message);
+			
+			if ($lastId < $message->id) {
+				$lastId = $message->id;
+			}
 		}
-		
-		$hintMessage = str_replace("'", '', $this->options['hint_message']);
-		$messagesBgColor = !empty($this->options['background_color']) ? "background-color: ".$this->options['background_color'].";" : '';
-		$inpuBgColor = !empty($this->options['background_color_input']) ? "background-color: ".$this->options['background_color_input'].";" : '';
-		$textColor = !empty($this->options['text_color']) ? "color: ".$this->options['text_color'].";" : '';
-		
-		$outString .= "<div id='$chatId' class='wcContainer'>
-				<div class='wcMessages' style='$messagesBgColor $textColor'>{$messagesRendering}</div>
-				<input class='wcInput' type='text' maxlength='{$this->options['message_max_length']}' placeholder='$hintMessage'  style='$inpuBgColor $textColor' />
-			</div>
-		";
 		
 		$jsOptions = array(
 			'chatId' => $chatId,
 			'channel' => $channel,
 			'lastId' => $lastId,
-			'siteURL' => get_site_url()
+			'lastActionId' => $this->actionsDAO->getLastActionId(),
+			'baseDir' => $this->options->getBaseDir(),
+			'apiEndpointBase' => $this->getEndpointBase(),
+			'messagesRefreshTime' => intval($this->options->getEncodedOption('messages_refresh_time', 3000)),
+			'messagesOrder' => $this->options->getEncodedOption('messages_order', '') == 'descending' ? 'descending' : 'ascending',
+			'enableTitleNotifications' => $this->options->isOptionEnabled('enable_title_notifications'),
+			'soundNotification' => $this->options->getEncodedOption('sound_notification'),
+			'channelUsersLimit' => $this->options->getIntegerOption('channel_users_limit', 0),
+			'siteURL' => get_site_url(),
+			'messages' => array(
+				'message_sending' => $this->options->getEncodedOption('message_sending', 'Sending ...'),
+				'hint_message' => $this->options->getEncodedOption('hint_message')
+			),
+			'userSettings' => $this->userService->getUserSettings()
 		);
-		$jsOptionsRender = json_encode($jsOptions);
 		
-		$outString .= "<script type='text/javascript'>jQuery(window).load(function() {  new WiseChatController({$jsOptionsRender}); }); </script>";
+		$templater = new WiseChatTemplater($this->options->getPluginBaseDir());
+		$templater->setTemplateFile(WiseChatThemes::getInstance()->getMainTemplate());
+		$data = array(
+			'chatId' => $chatId,
+			'baseDir' => $this->options->getBaseDir(),
+			'messages' => $renderedMessages,
+			'showMessageSubmitButton' => $this->options->isOptionEnabled('show_message_submit_button'),
+			'messageSubmitButtonCaption' => $this->options->getEncodedOption('message_submit_button_caption', 'Send'),
+			'enableImagesUploader' => $this->options->isOptionEnabled('enable_images_uploader'),
+			'showUsers' => $this->options->isOptionEnabled('show_users'),
+			'showUsersCounter' => $this->options->isOptionEnabled('show_users_counter'),
+			
+			'channelUsersLimit' => $this->options->getIntegerOption('channel_users_limit', 0),
+			'enableChannelUsersLimit' => $this->options->getIntegerOption('channel_users_limit', 0) > 0,
+			
+			'totalUsers' => $this->usersDAO->getAmountOfCurrentUsersOfChannel($channel),
+			'showUserName' => $this->options->isOptionEnabled('show_user_name') && !$this->usersDAO->isWpUserLogged(),
+			'currentUserName' => htmlentities($this->usersDAO->getUserName()),
+			
+			'inputControlsTopLocation' => $this->options->getEncodedOption('input_controls_location') == 'top',
+			'inputControlsBottomLocation' => $this->options->getEncodedOption('input_controls_location') == '',
+			
+			'showCustomizationsPanel' => 
+				$this->options->isOptionEnabled('allow_change_user_name') && !$this->usersDAO->isWpUserLogged() ||
+				$this->options->isOptionEnabled('allow_mute_sound') && strlen($this->options->getEncodedOption('sound_notification')) > 0,
+				
+			'allowChangeUserName' => $this->options->isOptionEnabled('allow_change_user_name') && !$this->usersDAO->isWpUserLogged(),
+			'allowMuteSound' => $this->options->isOptionEnabled('allow_mute_sound') && strlen($this->options->getEncodedOption('sound_notification')) > 0,
+				
+			'messageCustomize' => $this->options->getEncodedOption('message_customize', 'Customize'),
+			'messageName' => $this->options->getEncodedOption('message_name', 'Name'),
+			'messageSave' => $this->options->getEncodedOption('message_save', 'Save'),
+			'messageMuteSounds' => $this->options->getEncodedOption('message_mute_sounds', 'Mute sounds'),
+			'messageTotalUsers' => $this->options->getEncodedOption('message_total_users', 'Total users'),
+			
+			'enableImagesUploader' => $this->options->isOptionEnabled('enable_images_uploader'),
+			'multilineSupport' => $this->options->isOptionEnabled('multiline_support'),
+			'hintMessage' => $this->options->getEncodedOption('hint_message'),
+			'messageMaxLength' => $this->options->getIntegerOption('message_max_length', 100),
+			
+			'windowTitle' => $this->options->getEncodedOption('window_title', ''),
+			'showWindowTitle' => strlen($this->options->getEncodedOption('window_title', '')) > 0,
+			
+			'jsOptions' => json_encode($jsOptions),
+			'cssDefinitions' => $this->cssRenderer->getCssDefinition($chatId),
+			'customCssDefinitions' => $this->cssRenderer->getCustomCssDefinition()
+		);
 		
-		return $outString;
+		$data = array_merge($data, $this->userService->getUserSettings());
+		
+		return $templater->render($data);
 	}
 	
-	private function getMessages($channel, $fromId = null) {
-		global $wpdb;
-		
-		$limit = intval($this->options['messages_limit']);
-		$channel = addslashes($channel);
-		$table = WiseChatInstaller::getMessagesTable();
-		
-		$conditions = array();
-		$conditions[] = "channel = '{$channel}'";
-		if ($fromId !== null) {
-			$fromId = intval($fromId);
-			$conditions[] = "id > {$fromId}";
+	private function getChatID() {
+		return 'wc'.md5(uniqid('', true));
+	}
+	
+	private function getValidChannel($channel) {
+		return $channel === null || $channel === '' ? 'global' : $channel;
+	}
+	
+	private function getEndpointBase() {
+		$endpointBase = get_site_url().'/wp-admin/admin-ajax.php';
+		if ($this->options->getEncodedOption('ajax_engine', null) === 'lightweight') {
+			$endpointBase = get_site_url().'/wp-content/plugins/wise-chat/src/endpoints/';
 		}
-		if (!$this->isWpUserAdminLogged()) {
-			$conditions[] = "admin = 0";
-		}
 		
-		$sql = "SELECT * FROM {$table} ".
-				(count($conditions) > 0 ? ' WHERE '.implode(' AND ', $conditions) : '').
-				" ORDER BY id DESC ".
-				" LIMIT {$limit};";
-		
-		$messages = $wpdb->get_results($sql);
-		
-		$this->deleteBans();
-		
-		return array_reverse($messages, true);
-	}
-	
-	private function startSession() {
-		if (!isset($_SESSION)) {
-			session_start();
-		}
-	}
-	
-	private function getPostParam($name, $default = null) {
-		return array_key_exists($name, $_POST) ? $_POST[$name] : $default;
-	}
-	
-	private function getGetParam($name, $default = null) {
-		return array_key_exists($name, $_GET) ? $_GET[$name] : $default;
-	}
-	
-	private function getRenderedMessage($message) {
-		$addDate = '';
-		if (date('Y-m-d', $message->time) != date('Y-m-d')) {
-			$addDate = date('Y-m-d', $message->time).' ';
-		}
-		$formated = '<span class="wcMessageTime">'.$addDate.date('H:i', $message->time).'</span> ';
-		
-		$userName = $message->user;
-		if ($userName == $this->getCurrentUserName()) {
-			$userName = "<strong>{$userName}</strong>";
-		}
-		$formated .= '<span class="wcMessageUser">'.$userName.'</span>: ';
-		
-		$formated .= htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8');
-		
-		return $formated;
-	}
-	
-	private function generateUserName() {
-		$this->startSession();
-
-		if (!array_key_exists('wise_chat_user_name', $_SESSION)) {
-			$lastNameId = intval(get_option('wise_chat_last_name_id', 1)) + 1;
-			update_option('wise_chat_last_name_id', $lastNameId);
-			$_SESSION['wise_chat_user_name'] = $this->options['user_name_prefix'].get_option('wise_chat_last_name_id');
-		}
-	}
-	
-	public function generateLoggedUserName() {
-		if (is_user_logged_in()) {
-			$currentUser = wp_get_current_user();
-			$displayName = $currentUser->display_name;
-			if (strlen($displayName) > 0) {
-				if (!array_key_exists('wise_chat_user_name_auto', $_SESSION)) {
-					$_SESSION['wise_chat_user_name_auto'] = $_SESSION['wise_chat_user_name'];
-				}
-				$_SESSION['wise_chat_user_name'] = $displayName;
-			}
-		} else {
-			if (array_key_exists('wise_chat_user_name_auto', $_SESSION)) {
-				$_SESSION['wise_chat_user_name'] = $_SESSION['wise_chat_user_name_auto'];
-			}
-		}
-	}
-	
-	private function isWpUserAdminLogged() {
-		return current_user_can('manage_options');
-	}
-	
-	private function deleteBans() {
-		global $wpdb;
-		
-		$time = time();
-		$table = WiseChatInstaller::getBansTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE time < $time");
-	}
-	
-	private function getBanByIp($ip) {
-		global $wpdb;
-		
-		$this->deleteBans();
-		
-		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$messages = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\" LIMIT 1;");
-		
-		return is_array($messages) && count($messages) > 0 ? $messages[0] : null;
+		return $endpointBase;
 	}
 }

@@ -3,46 +3,27 @@
 require_once "WiseChatAbstractCommand.php";
 
 /**
- * Wise Chat /unban command.
+ * Wise Chat command: /unban
  *
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
  */
 class WiseChatUnbanCommand extends WiseChatAbstractCommand {
-
+	
 	public function execute() {
 		$ip = isset($this->arguments[0]) ? $this->arguments[0] : null;
 		
 		if ($ip !== null) {
-			$ban = $this->getBanByIp($ip);
+			$ban = $this->bansDAO->getBanByIp($ip);
 			
 			if ($ban !== null) {
-				
-				$this->removeBan($ban->ip);
-				$this->addMessage("IP ".$ban->ip." has been unbanned");
+				$this->bansDAO->deleteByIp($ban->ip);
+				$this->addMessage("Ban on IP address ".$ban->ip." has been removed");
 			} else {
-				$this->addMessage('IP was not found');
+				$this->addMessage('There is no ban for this IP address');
 			}
 		} else {
-			$this->addMessage('Please specify the IP');
+			$this->addMessage('Please specify the IP address');
 		}
-	}
-	
-	protected function getBanByIp($ip) {
-		global $wpdb;
-		
-		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$messages = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\" LIMIT 1;");
-		
-		return is_array($messages) && count($messages) > 0 ? $messages[0] : null;
-	}
-	
-	private function removeBan($ip) {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getBansTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE ip = '{$ip}'");
 	}
 }
