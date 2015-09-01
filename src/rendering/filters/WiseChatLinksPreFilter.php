@@ -22,6 +22,11 @@ class WiseChatLinksPreFilter {
 	private $replacementOffset = 0;
 	
 	/**
+	* @var array
+	*/
+	private $createdAttachments = array();
+	
+	/**
 	* Constructor
 	*
 	* @param WiseChatImagesDownloader $imagesDownloader
@@ -30,6 +35,15 @@ class WiseChatLinksPreFilter {
 	*/
 	public function __construct($imagesDownloader) {
 		$this->imagesDownloader = $imagesDownloader;
+	}
+	
+	/**
+	* Created attachments.
+	*
+	* @return array
+	*/
+	public function getCreatedAttachments() {
+		return $this->createdAttachments;
 	}
 	
 	/**
@@ -43,6 +57,7 @@ class WiseChatLinksPreFilter {
 	*/
 	public function filter($text, $channel, $detectAndDownloadImages) {
 		$this->replacementOffset = 0;
+		$this->createdAttachments = array();
 		
 		if (preg_match_all(self::URL_REGEXP, $text, $matches)) {
 			if (count($matches) == 0) {
@@ -61,6 +76,7 @@ class WiseChatLinksPreFilter {
 				
 					$result = $this->imagesDownloader->downloadImage($imageUrl, $channel);
 					if ($result != null) {
+						$this->createdAttachments[] = $result['id'];
 						$shortCode = WiseChatShortcodeConstructor::getImageShortcode($result['id'], $result['image'], $result['image-th'], $detectedURL);
 					} else {
 						$regularLink = true;

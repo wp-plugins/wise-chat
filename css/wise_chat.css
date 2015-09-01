@@ -44,6 +44,10 @@
 	width: 100%;
 }
 
+.wcContainer .wcWindowContent {
+	padding: 10px;
+}
+
 /* Messages list: */
 .wcContainer .wcMessages {
 	width: 100%; height: 200px; overflow: auto; 
@@ -80,8 +84,48 @@
 	font-weight: bold;
 }
 
-.wcContainer input.wcInput, .wcContainer textarea.wcInput {
+.wcContainer input.wcInput, .wcContainer textarea.wcInput, .wcContainer progress.wcMainProgressBar {
 	width: 100%;
+}
+
+/* Progress bar cross-browser styling */
+.wcContainer progress, .wcContainer progress[role]  {
+	height: 4px; margin-top: 1px; line-height: 4px; display: block; appearance: none; -moz-appearance: none;
+	-webkit-appearance: none; border: none; background-size: auto;
+}
+
+.wcContainer progress[role]:after {
+	background-image: none;
+}
+
+.wcContainer progress[role] strong {
+	display: none;
+}
+
+/* Progress bar - background */
+.wcContainer progress, .wcContainer progress[role][aria-valuenow] {
+   background: #ccc !important;
+}
+
+.wcContainer progress::-webkit-progress-bar {
+    background: #ccc;
+}
+
+/* Progress bar - foreground */
+.wcContainer progress {
+    color: #5789FF;
+}
+
+.wcContainer progress::-moz-progress-bar { 
+    background: #5789FF;   
+}
+
+.wcContainer progress::-webkit-progress-value {
+    background: #5789FF;
+}
+
+.wcContainer progress[aria-valuenow]:before  {
+    background: #5789FF;
 }
 
 .wcCustomizations a {
@@ -108,30 +152,27 @@
 	float: right;
 }
 
+/* Tool buttons */
+.wcControlsButtonsIncluded a.wcToolButton {
+	float: right; margin-right: 5px; cursor: pointer !important; display: inline-block; width: 38px; height: 32px; border: 1px solid transparent; padding: 0px 3px;
+	position: relative; overflow: hidden;
+}
+
+.wcControlsButtonsIncluded a.wcToolButton:hover {
+	border: 1px solid #dfdfdf; cursor: pointer !important;
+}
+
+.wcControlsButtonsIncluded a.wcToolButton input {
+	position: absolute; top: 0; bottom: 0; left: 0; right: 0; opacity: 0.001; cursor: pointer; z-index: 1000;
+}
+
 /* Attachments */
 .wcControlsButtonsIncluded a.wcAddImageAttachment {
-	float: right; margin-right: 5px; cursor: pointer; display: inline-block; width: 38px; height: 32px; border: 1px solid transparent; padding: 0px 3px;
 	background:  url('../gfx/icons/camera.png') center center no-repeat;
 }
 
-.wcControlsButtonsIncluded a.wcAddImageAttachment:hover {
-	border: 1px solid #dfdfdf;
-}
-
-a.wcAddImageAttachment {
-    position: relative; overflow: hidden;
-}
-
-a.wcAddImageAttachment input {
-    position: absolute; top: 0; bottom: 0; left: 0; right: 0; opacity: 0.001; cursor: pointer; z-index: 1000;
-}
-
-a.wcImageUploadClear {
-	border: 1px solid transparent;
-}
-
-a.wcImageUploadClear:hover {
-	border: 1px solid #dfdfdf;
+.wcControlsButtonsIncluded a.wcAddFileAttachment {
+	background:  url('../gfx/icons/attach.png') center center no-repeat; width: 26px;
 }
 
 .wcMessageAttachments {
@@ -140,6 +181,14 @@ a.wcImageUploadClear:hover {
 
 .wcMessageAttachments .wcImageUploadPreview {
 	max-width: 70px; max-height: 50px; cursor: pointer; display: inline-block; vertical-align: middle; margin-right: 3px;
+}
+
+.wcMessageAttachments a.wcAttachmentClear {
+	border: 1px solid transparent;
+}
+
+.wcMessageAttachments a.wcAttachmentClear:hover {
+	border: 1px solid #dfdfdf;
 }
 
 /* Image viewer: */
@@ -168,4 +217,13 @@ a.wcImageUploadClear:hover {
 
 .wcContainer .wcCustomizationsPanel .wcCustomizationsProperty:not(:last-child) {
 	margin-bottom: 4px;
+}
+
+.wcContainer .wcChannelProtectionHint {
+	margin: 10px 0px;
+}
+
+.wcContainer .wcChannelAuthorizationError {
+	margin: 10px 0px;
+	color: #ff0000;
 }

@@ -29,7 +29,8 @@ function WiseChatSettings(options, messages) {
 			data: {
 				property: propertyName,
 				value: propertyValue,
-				channel: options.channel
+				channel: options.channel,
+				checksum: options.checksum
 			}
 		})
 		.success(function(result) {

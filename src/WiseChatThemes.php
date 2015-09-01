@@ -17,16 +17,22 @@ class WiseChatThemes {
 		'' => array(
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/default/message.tpl',
+			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/default/theme.css',
 		),
 		'colddark' => array(
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/colddark/message.tpl',
+			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/colddark/theme.css',
 		),
 		'lightgray' => array(
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/lightgray/message.tpl',
+			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/lightgray/theme.css',
 		)
 	);
@@ -63,6 +69,14 @@ class WiseChatThemes {
 	
 	public function getMessageTemplate() {
 		return $this->getThemeProperty('messageTemplate');
+	}
+	
+	public function getPasswordAuthorizationTemplate() {
+		return $this->getThemeProperty('passwordAuthorization');
+	}
+	
+	public function getAccessDeniedTemplate() {
+		return $this->getThemeProperty('accessDenied');
 	}
 	
 	public function getCss() {

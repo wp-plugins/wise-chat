@@ -1,10 +1,10 @@
 /* colddark */
 
-.wcContainer * {
+.wcContainer *, .wcError * {
 	font: 12px/16px "Helvetica Neue",Roboto,"Segoe UI",Calibri,sans-serif; color: #cfcfcf;
 }
 
-.wcContainer {
+.wcContainer, .wcError {
 	-webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px;
 	background-color: #333; border-color: #444; padding-top: 10px;
 }
@@ -18,21 +18,22 @@
 	text-decoration: underline;
 }
 
-.wcContainer input[type="button"], .wcContainer input[type="button"]:active {
+.wcContainer input[type="button"], .wcContainer input[type="button"]:active,
+.wcContainer input[type="submit"], .wcContainer input[type="submit"]:active {
 	border-radius: 5px; background-color: #55acee; background-image: none; background-repeat: none; border: none;
 	color: #fff; font-size: 13px; padding: 6px 13px; box-shadow: none;
 	text-transform: none;
 }
 
-.wcContainer input[type="button"]:focus {
+.wcContainer input[type="button"]:focus, .wcContainer input[type="submit"]:focus {
 	background: #55acee; color: #fff; padding: 6px 13px;
 }
 
-.wcContainer input[type="button"]:hover {
+.wcContainer input[type="button"]:hover, .wcContainer input[type="submit"]:hover {
 	background: #65bcfe; color: #fff;
 }
 
-.wcContainer input[type="text"], .wcContainer textarea {
+.wcContainer input[type="text"], .wcContainer input[type="password"], .wcContainer textarea {
 	height: 30px; font-size: 13px; line-height: 20px;
 	background-color: #fff;  border: 1px solid #e1e8ed; border-radius: 3px; margin: 0; outline: 0 none; padding: 4px;
 	color: #222;
@@ -43,7 +44,11 @@
 }
 
 .wcContainer .wcMessages {
-	background-color: #333; color: #cfcfcf; border: 1px solid #333; border-top: 1px solid #444; border-bottom: 1px solid #444;
+	background-color: #333; color: #cfcfcf; border: 1px solid #333; border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 0px;
+}
+
+.wcUsersListIncluded .wcMessages {
+	width: 67%; border: 1px solid #444444; margin-left: 8px;
 }
 
 .wcContainer .wcUsersCounter {
@@ -110,15 +115,24 @@
 	font-size: 100%; display: inline-block; margin: 4px 0px; color: #38d5e0;
 }
 
-.wcControlsButtonsIncluded a.wcAddImageAttachment:hover {
+.wcControlsButtonsIncluded a.wcToolButton:hover {
 	border: 1px solid #444;
 }
 
-.wcContainer a.wcImageUploadClear:hover {
+.wcMessageAttachments a.wcAttachmentClear:hover {
 	border: 1px solid #444;
 }
 
 /* Users list: */
 .wcContainer .wcUsersList {
-	border: none; background-color: #333; color: #cfcfcf;
+	border-color: #444444; background-color: #333; color: #cfcfcf; margin-right: 8px;
+}
+
+.wcContainer .wcWindowContent {
+	text-align: center;
+}
+
+.wcContainer .wcError {
+	padding: 10px; color: #ffffff; background-color: rgb(247,66,67); border-radius: 5px; border: 1px solid rgb(207,46,47);
+	display: inline-block;
 }

@@ -15,6 +15,8 @@ class WiseChatMessagesTab extends WiseChatAbstractTab {
 			array('allow_post_links', 'Enable Links', 'booleanFieldCallback', 'boolean', 'Converts posted URLs to hyperlinks'),
 			array('allow_post_images', 'Enable Images', 'booleanFieldCallback', 'boolean', 'Downloads posted images (links pointing to images) into Media Library and displays them'),
 			array('enable_images_uploader', 'Enable Images Uploader', 'booleanFieldCallback', 'boolean', 'Enables uploading of pictures either from local storage or from the camera (on a mobile device). <br />In order to see uploaded picture "Enable Images" option has to be enabled'),
+			array('enable_attachments_uploader', 'Enable Attachments Uploader', 'booleanFieldCallback', 'boolean', 'Enables uploading of file attachments from local storage. You can specify allowed file formats below'),
+			array('attachments_file_formats', 'Attachments File Formats', 'stringFieldCallback', 'string', 'Comma-separated list of allowed extensions'),
 			array('enable_message_actions', 'Enable Admin Actions', 'booleanFieldCallback', 'boolean', 'Displays removal button next to each message'),
 			array('enable_twitter_hashtags', 'Enable Twitter Hashtags', 'booleanFieldCallback', 'boolean', 'Detects Twitter hashtags and converts them to links'),
 		);
@@ -28,7 +30,15 @@ class WiseChatMessagesTab extends WiseChatAbstractTab {
 			'allow_post_images' => 0,
 			'enable_images_uploader' => 0,
 			'enable_message_actions' => 0,
-			'enable_twitter_hashtags' => 0
+			'enable_twitter_hashtags' => 0,
+			'enable_attachments_uploader' => 0,
+			'attachments_file_formats' => 'pdf,doc,docx'
+		);
+	}
+	
+	public function getParentFields() {
+		return array(
+			'attachments_file_formats' => 'enable_attachments_uploader'
 		);
 	}
 }

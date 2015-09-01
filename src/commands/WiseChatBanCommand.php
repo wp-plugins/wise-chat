@@ -14,15 +14,15 @@ class WiseChatBanCommand extends WiseChatAbstractCommand {
 		$user = isset($this->arguments[0]) ? $this->arguments[0] : null;
 		
 		if ($user !== null) {
-			$messageUser = $this->messagesDAO->getLastMessageByUserName($this->channel, $user);
+			$channelUser = $this->channelUsersDAO->getByUserAndChannel($user, $this->channel);
 			
-			if ($messageUser !== null) {
+			if ($channelUser !== null) {
 				$duration = $this->bansDAO->getDurationFromString($this->arguments[1]);
 				
-				if ($this->bansDAO->createAndSave($messageUser->ip, $duration)) {
-					$this->addMessage("IP ".$messageUser->ip." has been banned, time: {$duration} seconds");
+				if ($this->bansDAO->createAndSave($channelUser->ip, $duration)) {
+					$this->addMessage("IP ".$channelUser->ip." has been banned, time: {$duration} seconds");
 				} else {
-					$this->addMessage("IP ".$messageUser->ip." is already banned");
+					$this->addMessage("IP ".$channelUser->ip." is already banned");
 				}
 			} else {
 				$this->addMessage('User was not found');

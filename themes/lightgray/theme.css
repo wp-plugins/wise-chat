@@ -19,7 +19,8 @@
 	color: #5974a9;
 }
 
-.wcContainer input[type="button"], .wcContainer input[type="button"]:focus, .wcContainer input[type="button"]:active {
+.wcContainer input[type="button"], .wcContainer input[type="button"]:focus, .wcContainer input[type="button"]:active,
+.wcContainer input[type="submit"], .wcContainer input[type="submit"]:focus, .wcContainer input[type="submit"]:active{
 	border-radius: 5px; background-image: none; background-repeat: none; border: 1px solid #bcbfc4;
 	color: #919297; font-size: 13px; padding: 5px 13px; box-shadow: none; font-weight: bold;
 	height: 31px;
@@ -34,11 +35,11 @@
 	text-transform: none;
 }
 
-.wcContainer input[type="button"]:hover {
+.wcContainer input[type="button"]:hover, .wcContainer input[type="submit"]:hover {
 	background: #ecedef; color: #717277;
 }
 
-.wcContainer input[type="text"], .wcContainer textarea {
+.wcContainer input[type="text"], .wcContainer input[type="password"], .wcContainer textarea {
 	height: 31px; font-size: 13px; line-height: 20px;
 	background-color: #fff;  border: 1px solid #b9b9bb; border-top-color: #adafae; border-radius: 3px; margin: 0; outline: 0 none; padding: 4px;
 }
@@ -130,12 +131,17 @@
 	font-size: 90%; display: inline-block; margin: 4px 0px; color: #5974a9;
 }
 
-.wcControlsButtonsIncluded a.wcAddImageAttachment:hover {
+.wcMessageAttachments a.wcAttachmentClear:hover  {
 	border: 1px solid #e1e8ed;
 }
 
-.wcContainer a.wcImageUploadClear:hover {
-	border: 1px solid #e1e8ed;
+.wcControlsButtonsIncluded a.wcToolButton:hover {
+	border: 1px solid #bcbfc4;
+}
+
+.wcContainer a.wcToolButton {
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ecedef', endColorstr='#cbcfd8',GradientType=0 ); /* IE6-9 */
+	border-radius: 5px; border: 1px solid #bcbfc4; box-shadow: none; height: 31px;
 }
 
 .wcContainer a.wcAddImageAttachment {
@@ -146,17 +152,38 @@
 	background: url('gfx/camera.png') center center no-repeat, -o-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* Opera 11.10+ */
 	background: url('gfx/camera.png') center center no-repeat, -ms-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* IE10+ */
 	background: url('gfx/camera.png') center center no-repeat, linear-gradient(to bottom,  #ecedef 0%,#cbcfd8 100%); /* W3C */
-	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ecedef', endColorstr='#cbcfd8',GradientType=0 ); /* IE6-9 */
-	border-radius: 5px; border: 1px solid #bcbfc4; box-shadow: none; height: 31px;
 }
 
 .wcContainer a.wcAddImageAttachment:hover {
 	background: url('gfx/camera.png') center center no-repeat, #ecedef;
-	border: 1px solid #bcbfc4;
+}
+
+.wcContainer a.wcAddFileAttachment {
+	background: url('gfx/attach.png') center center no-repeat, #ecedef; /* Old browsers */
+	background: url('gfx/attach.png') center center no-repeat, -moz-linear-gradient(top,  #ecedef 0%, #cbcfd8 100%); /* FF3.6+ */
+	background: url('gfx/attach.png') center center no-repeat, -webkit-gradient(linear, left top, left bottom, color-stop(0%,#ecedef), color-stop(100%,#cbcfd8)); /* Chrome,Safari4+ */
+	background: url('gfx/attach.png') center center no-repeat, -webkit-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* Chrome10+,Safari5.1+ */
+	background: url('gfx/attach.png') center center no-repeat, -o-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* Opera 11.10+ */
+	background: url('gfx/attach.png') center center no-repeat, -ms-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* IE10+ */
+	background: url('gfx/attach.png') center center no-repeat, linear-gradient(to bottom,  #ecedef 0%,#cbcfd8 100%); /* W3C */
+}
+
+.wcContainer a.wcAddFileAttachment:hover {
+	background: url('gfx/attach.png') center center no-repeat, #ecedef;
 }
 
 /* Users list: */
 .wcContainer .wcUsersList {
 	border: none; background-color: #fff color: #111;
+	border-top: 1px solid #e1e8ed; border-bottom: 1px solid #e1e8ed;
 }
 
+.wcContainer .wcWindowContent {
+	text-align: center;
+	padding-top: 0px;
+}
+
+.wcContainer .wcError {
+	padding: 10px; color: #ffffff; background-color: rgb(247,66,67); border-radius: 5px; border: 1px solid rgb(207,46,47);
+	display: inline-block;
+}

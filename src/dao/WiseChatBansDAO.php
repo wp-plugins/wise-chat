@@ -40,8 +40,6 @@ class WiseChatBansDAO {
 	public function getBanByIp($ip) {
 		global $wpdb;
 		
-		$this->deleteOldBans();
-		
 		$ip = addslashes($ip);
 		$table = WiseChatInstaller::getBansTable();
 		$bans = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\" LIMIT 1;");
@@ -67,8 +65,6 @@ class WiseChatBansDAO {
 	*/
 	public function getAll() {
 		global $wpdb;
-		
-		$this->deleteOldBans();
 		
 		$table = WiseChatInstaller::getBansTable();
 		$bans = $wpdb->get_results("SELECT * FROM {$table};");
