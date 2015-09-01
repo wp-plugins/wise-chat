@@ -31,6 +31,8 @@
 	
 	// features enabled:
 	require_once(ABSPATH.WPINC.'/formatting.php');
+	require_once(ABSPATH.WPINC.'/query.php');
+	require_once(ABSPATH.WPINC.'/comment.php');
 	require_once(ABSPATH.WPINC.'/meta.php');
 	require_once(ABSPATH.WPINC.'/post.php');
 	require_once(ABSPATH.WPINC.'/shortcodes.php');
@@ -55,14 +57,17 @@
 	wp_plugin_directory_constants();
 	wp_cookie_constants();
 	
+	// removing images downloaded by the chat:
+	$wiseChatImagesDownloader = new WiseChatImagesDownloader();
+	add_action('delete_attachment', array($wiseChatImagesDownloader, 'removeRelatedImages'));
+	
 	$actionsMap = array(
 		'wise_chat_messages_endpoint' => 'messagesEndpoint',
 		'wise_chat_message_endpoint' => 'messageEndpoint',
 		'wise_chat_delete_message_endpoint' => 'messageDeleteEndpoint',
-		'wise_chat_actions_endpoint' => 'actionsEndpoint',
+		'wise_chat_maintenance_endpoint' => 'maintenanceEndpoint',
 		'wise_chat_settings_endpoint' => 'settingsEndpoint'
 	);
-	
 	$wiseChatEndpoints = new WiseChatEndpoints();
 	
 	$action = $_REQUEST['action'];

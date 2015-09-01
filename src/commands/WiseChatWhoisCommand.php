@@ -14,10 +14,9 @@ class WiseChatWhoisCommand extends WiseChatAbstractCommand {
 		$user = isset($this->arguments[0]) ? $this->arguments[0] : null;
 		
 		if ($user !== null) {
-			$messageUser = $this->messagesDAO->getLastMessageByUserName($this->channel, $user);
-			
-			if ($messageUser !== null) {
-				$details = sprintf("User: %s, IP: %s", $user, $messageUser->ip);
+			$channelUser = $this->channelUsersDAO->getByUserAndChannel($user, $this->channel);
+			if ($channelUser !== null) {
+				$details = sprintf("User: %s, IP: %s", $user, $channelUser->ip);
 				
 				$this->addMessage($details);
 			} else {

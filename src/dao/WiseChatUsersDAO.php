@@ -9,13 +9,13 @@
 class WiseChatUsersDAO {
 	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
 	const USER_NAME_SESSION_KEY = 'wise_chat_user_name';
+	const USER_CHANNEL_AUTHORIZATION_SESSION_KEY = 'wise_chat_user_channel_authorization';
 	const USER_AUTO_NAME_SESSION_KEY = 'wise_chat_user_name_auto';
 	const EVENT_TIME_SESSION_KEY = 'wise_chat_activity_time';
 	const ABUSES_COUNTER_SESSION_KEY = 'wise_chat_ban_detector_counter';
-	const CURRENT_USERS_TESTING_TIMEFRAME = 80;
 	
 	/**
-	* @var array Events thresholds in minutes
+	* @var array Events thresholds in seconds
 	*/
 	private $eventTimeThresholds = array(
 		'usersList' => 20,
@@ -52,6 +52,36 @@ class WiseChatUsersDAO {
 		}
 		
 		return false;
+	}
+	
+	/**
+	* Determines whether current user is authorized for given channel.
+	*
+	* @param string $channelName
+	*
+	* @return boolean
+	*/
+	public function isUserAuthorizedForChannel($channelName) {
+		$grants = $_SESSION[self::USER_CHANNEL_AUTHORIZATION_SESSION_KEY];
+		
+		return is_array($grants) && array_key_exists($channelName, $grants);
+	}
+	
+	/**
+	* Marks the current user as authorized for given channel.
+	*
+	* @param string $channelName
+	*
+	* @return null
+	*/
+	public function markAuthorizedForChannel($channelName) {
+		$grants = $_SESSION[self::USER_CHANNEL_AUTHORIZATION_SESSION_KEY];
+		if (!is_array($grants)) {
+			$grants = array();
+		}
+		
+		$grants[$channelName] = true;
+		$_SESSION[self::USER_CHANNEL_AUTHORIZATION_SESSION_KEY] = $grants;
 	}
 	
 	/**
@@ -179,27 +209,12 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Replaces generated user name with WordPress user name (if the user is logged in).
-	* Method preserves originally generated user name in session.
+	* Resets username counter.
 	*
 	* @return null
 	*/
-	public function generateLoggedUserName() {
-		$currentUser = $this->getCurrentWpUser();
-		
-		if ($currentUser !== null) {
-			$displayName = $currentUser->display_name;
-			if (strlen($displayName) > 0) {
-				if ($this->getOriginalUserName() === null) {
-					$this->setOriginalUserName($this->getUserName());
-				}
-				$this->setUserName($displayName);
-			}
-		} else {
-			if ($this->getOriginalUserName() !== null) {
-				$this->setUserName($this->getOriginalUserName());
-			}
-		}
+	public function resetUserNameCounter() {
+		update_option(self::LAST_NAME_ID_OPTION, 0);
 	}
 	
 	/**
@@ -229,18 +244,28 @@ class WiseChatUsersDAO {
 	
 	/**
 	* Resets tracking of the given event.
+	* Resets all events if event ID equals null.
 	*
 	* @param string $eventGroup Event group
-	* @param string $eventId Event id
+	* @param string|null $eventId Event id
 	*
 	* @return null
 	*/
-	public function resetEventTracker($eventGroup, $eventId) {
+	public function resetEventTracker($eventGroup, $eventId = null) {
 		$this->startSession();
 		
-		$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
-		if (array_key_exists($sessionKey, $_SESSION)) {
-			unset($_SESSION[$sessionKey]);
+		if ($eventId !== null) {
+			$sessionKey = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_'.md5($eventId);
+			if (array_key_exists($sessionKey, $_SESSION)) {
+				unset($_SESSION[$sessionKey]);
+			}
+		} else {
+			$prefix = self::EVENT_TIME_SESSION_KEY.md5($eventGroup).'_';
+			foreach($_SESSION as $key => $value) {
+				if (strpos($key, $prefix) === 0) {
+					unset($_SESSION[$key]);
+				}
+			}
 		}
 	}
 	
@@ -275,97 +300,11 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Returns users of given channel from the last CURRENT_USERS_TESTING_TIMEFRAME seconds.
-	*
-	* @param string $channel Channel
-	*
-	* @return array
-	*/
-	public function getCurrentUsersOfChannel($channel) {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getMessagesTable();
-		
-		$conditions = array();
-		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
-		$conditions[] = "time > {$timeFrame}";
-		$conditions[] = "channel = '{$channel}'";
-		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
-		$sql = "SELECT DISTINCT user AS name FROM {$table} ".
-				" WHERE ".implode(" AND ", $conditions).
-				" ORDER BY user ASC ".
-				" LIMIT 1000;";
-				
-		return $wpdb->get_results($sql);
-	}
-	
-	/**
-	* Returns the amount of users of given channel from the last CURRENT_USERS_TESTING_TIMEFRAME seconds.
-	*
-	* @param string $channel Channel
-	*
-	* @return integer
-	*/
-	public function getAmountOfCurrentUsersOfChannel($channel) {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getMessagesTable();
-		
-		$conditions = array();
-		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
-		$conditions[] = "time > {$timeFrame}";
-		$conditions[] = "channel = '{$channel}'";
-		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
-		$sql = "SELECT count(DISTINCT user) AS quantity FROM {$table} ".
-				" WHERE ".implode(" AND ", $conditions);
-				
-		$results = $wpdb->get_results($sql);
-		if (is_array($results) && count($results) > 0) {
-			$result = $results[0];
-			return $result->quantity;
-		}
-		
-		return 0;
-	}
-	
-	/**
-	* Determines whether the given user has any ping messages in the channel.
-	*
-	* @param string $channel Name of the channel
-	* @param string $userName Name of the user
-	*
-	* @return boolean
-	*/
-	public function hasUserPingMessages($channel, $userName) {
-		global $wpdb;
-		
-		$userName = addslashes($userName);
-		$channel = addslashes($channel);
-		$table = WiseChatInstaller::getMessagesTable();
-		
-		$conditions = array();
-		$timeFrame = time() - self::CURRENT_USERS_TESTING_TIMEFRAME;
-		$conditions[] = "time > {$timeFrame}";
-		$conditions[] = "channel = '{$channel}'";
-		$conditions[] = "user = '{$userName}'";
-		$conditions[] = "text = '".WiseChatMessagesDAO::SYSTEM_PING_MESSAGE."'";
-		$sql = "SELECT count(DISTINCT user) AS quantity FROM {$table} WHERE ".implode(" AND ", $conditions);
-				
-		$results = $wpdb->get_results($sql);
-		if (is_array($results) && count($results) > 0) {
-			$result = $results[0];
-			return $result->quantity > 0;
-		}
-		
-		return false;
-	}
-	
-	/**
-	* Retuns an originally generated name of the user.
+	* Returns the original username if exists.
 	*
 	* @return string|null
 	*/
-	private function getOriginalUserName() {
+	public function getOriginalUserName() {
 		$this->startSession();
 		
 		if (array_key_exists(self::USER_AUTO_NAME_SESSION_KEY, $_SESSION)) {
@@ -376,11 +315,11 @@ class WiseChatUsersDAO {
 	}
 	
 	/**
-	* Sets an originally generated name of the user.
+	* Sets the original username.
 	*
 	* @return null
 	*/
-	private function setOriginalUserName($userName) {
+	public function setOriginalUserName($userName) {
 		$this->startSession();
 		
 		$_SESSION[self::USER_AUTO_NAME_SESSION_KEY] = $userName;

@@ -11,10 +11,10 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 	public function getFields() {
 		return array(
 			array(
-				'restrict_to_wp_users', 'Only For Logged In Users', 'booleanFieldCallback', 'boolean',
-				'Denies access for anonymous users, only logged in WP users are allowed to see the chat'
+				'access_mode', 'Access Mode', 'selectCallback', 'string',
+				'Chat authorization mode', self::getAccessModes()
 			),
-			
+			array('user_actions', 'Actions', 'adminActionsCallback', 'void'),
 			array('_section', 'Chat Opening Hours and Days'),
 			array('enable_opening_control', 'Enable Opening Control', 'booleanFieldCallback', 'boolean', 'Allows to specify when the chat is available for users.'),
 			array('opening_days', 'Opening Days', 'checkboxesCallback', 'multivalues', 'Select chat opening days.', self::getOpeningDaysValues()),
@@ -24,7 +24,8 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 	
 	public function getDefaultValues() {
 		return array(
-			'restrict_to_wp_users' => 0,
+			'access_mode' => 0,
+			'user_actions' => null,
 			'enable_opening_control' => 0,
 			'opening_days' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
 			'opening_hours' => array('opening' => '8:00', 'openingMode' => 'AM', 'closing' => '4:00', 'closingMode' => 'PM')
@@ -36,6 +37,18 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 			'opening_days' => 'enable_opening_control',
 			'opening_hours' => 'enable_opening_control'
 		);
+	}
+	
+	public function getAccessModes() {
+		return array(
+			0 => 'All',
+			1 => 'Only regular WP users'
+		);
+	}
+	
+	public function resetAnonymousCounterAction() {
+		$this->usersDAO->resetUserNameCounter();
+		$this->addMessage('The prefix has been reset.');
 	}
 	
 	public function openingHoursCallback($args) {
@@ -102,6 +115,15 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 			'Friday' => 'Friday', 
 			'Saturday' => 'Saturday',
 			'Sunday' => 'Sunday'
+		);
+	}
+	
+	public function adminActionsCallback() {
+		$url = admin_url("options-general.php?page=".WiseChatSettings::MENU_SLUG."&wc_action=resetAnonymousCounter");
+		
+		printf(
+			'<a class="button-secondary" href="%s" title="Resets username prefix" onclick="return confirm(\'Are you sure you want to reset the prefix?\')">Reset Username Prefix</a><p class="description">Resets prefix number used to generate username for anonymous users.</p>',
+			wp_nonce_url($url)
 		);
 	}
 }

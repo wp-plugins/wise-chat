@@ -2,8 +2,11 @@
 	wcContainer 
 	{% if showMessageSubmitButton %} wcControlsButtonsIncluded {% endif showMessageSubmitButton %}
 	{% if enableImagesUploader %} wcControlsButtonsIncluded {% endif enableImagesUploader %}
-	{% if showUsers %} wcUsersListIncluded {% endif showUsers %}
+	{% if enableAttachmentsUploader %} wcControlsButtonsIncluded {% endif enableAttachmentsUploader %}
+	{% if showUsersList %} wcUsersListIncluded {% endif showUsersList %}
 {% endvariable containerClasses %}
+
+<link rel='stylesheet' id='wise_chat_theme_{{ chatId }}-css' href='{{ themeStyles }}' type='text/css' media='all' />
 
 <div id='{{ chatId }}' class='{{ containerClasses }}'>
 	{% if showWindowTitle %}
@@ -13,9 +16,9 @@
 	{% if inputControlsBottomLocation %}
 		<div class='wcMessages'>{{ messages }}</div>
 		
-		{% if showUsers %}
-			<div class='wcUsersList'>&nbsp;</div><br class='wcClear' />
-		{% endif showUsers %}
+		{% if showUsersList %}
+			<div class='wcUsersList'>{{ usersList }}</div><br class='wcClear' />
+		{% endif showUsersList %}
 		
 		{% if showUsersCounter %}
 			<div class='wcUsersCounter'>
@@ -34,8 +37,12 @@
 			<input type='button' class='wcSubmitButton' value='{{ messageSubmitButtonCaption }}' />
 		{% endif showMessageSubmitButton %}
 		
+		{% if enableAttachmentsUploader %}
+			<a href="javascript://" class="wcToolButton wcAddFileAttachment" title="{{ messageAttachFileHint }}"><input type="file" accept="{{ attachmentsExtensionsList }}" class="wcFileUploadFile" title="{{ messageAttachFileHint }}" /></a>
+		{% endif enableAttachmentsUploader %}
+		
 		{% if enableImagesUploader %}
-			<a href="javascript://" class="wcAddImageAttachment"><input type="file" accept="image/*;capture=camera" class="wcImageUploadFile" /></a>
+			<a href="javascript://" class="wcToolButton wcAddImageAttachment" title="{{ messagePictureUploadHint }}"><input type="file" accept="image/*;capture=camera" class="wcImageUploadFile" title="{{ messagePictureUploadHint }}" /></a>
 		{% endif enableImagesUploader %}
 		
 		<div class='wcInputContainer'>
@@ -45,14 +52,17 @@
 			{% if !multilineSupport %}
 				<input class='wcInput' type='text' maxlength='{{ messageMaxLength }}' placeholder='{{ hintMessage }}' />
 			{% endif multilineSupport %}
+			
+			<progress class="wcMainProgressBar" max="100" value="0" style="display: none;"> </progress>
 		</div>
 		
-		{% if enableImagesUploader %}
+		{% if enableAttachmentsPanel %}
 			<div class="wcMessageAttachments" style="display: none;">
-				<img class="wcImageUploadPreview" />
-				<a href="javascript://" class="wcImageUploadClear"><img src='{{ baseDir }}/gfx/icons/x.png' class='wcIcon' /></a>
+				<img class="wcImageUploadPreview" style="display: none;" />
+				<span class="wcFileUploadNamePreview" style="display: none;"></span>
+				<a href="javascript://" class="wcAttachmentClear"><img src='{{ baseDir }}/gfx/icons/x.png' class='wcIcon' /></a>
 			</div>
-		{% endif enableImagesUploader %}
+		{% endif enableAttachmentsPanel %}
 		
 		{% if showCustomizationsPanel %}
 			<div class='wcCustomizations'>
@@ -77,9 +87,9 @@
 	{% if inputControlsTopLocation %}
 		<div class='wcMessages'>{{ messages }}</div>
 		
-		{% if showUsers %}
-			<div class='wcUsersList'>&nbsp;</div><br class='wcClear' />
-		{% endif showUsers %}
+		{% if showUsersList %}
+			<div class='wcUsersList'>{{ usersList }}</div><br class='wcClear' />
+		{% endif showUsersList %}
 		{% if showUsersCounter %}
 			<div class='wcUsersCounter'>
 				{{ messageTotalUsers }}: <span>{{ totalUsers }}{% if enableChannelUsersLimit %}&nbsp;/&nbsp;{{ channelUsersLimit }} {% endif enableChannelUsersLimit %}</span>
@@ -93,7 +103,15 @@
 {{ customCssDefinitions }}
 
 <script type='text/javascript'>
-	jQuery(window).load(function() {  
-		new WiseChatController({{ jsOptions }}); 
+	jQuery(window).load(function() {
+		var jsOptions = {{ jsOptions }};
+		
+		if (typeof(window['wiseChatInstances']) == 'undefined') {
+			window['wiseChatInstances'] = {};
+		}
+		
+		if (typeof(window.wiseChatInstances[jsOptions.chatId]) == 'undefined') {
+			window.wiseChatInstances[jsOptions.chatId] = new WiseChatController(jsOptions);
+		}
 	}); 
 </script>

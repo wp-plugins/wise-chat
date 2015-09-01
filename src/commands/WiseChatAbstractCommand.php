@@ -31,6 +31,11 @@ class WiseChatAbstractCommand {
 	protected $usersDAO;
 	
 	/**
+	* @var WiseChatChannelUsersDAO
+	*/
+	protected $channelUsersDAO;
+	
+	/**
 	* @var WiseChatBansDAO
 	*/
 	protected $bansDAO;
@@ -39,6 +44,7 @@ class WiseChatAbstractCommand {
 		$this->messagesDAO = new WiseChatMessagesDAO();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
+		$this->channelUsersDAO = new WiseChatChannelUsersDAO();
 		$this->arguments = $arguments;
 		$this->channel = $channel;
 	}

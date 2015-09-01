@@ -4,7 +4,7 @@
  * @version 1.0
  * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
  */
-function WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter, notifier) {
+function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier) {
 	var MESSAGES_REFRESH_TIMEOUT = options.messagesRefreshTime;
 	var MESSAGES_ORDER = options.messagesOrder;
 	
@@ -22,6 +22,8 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	var usersListContainer = container.find('.wcUsersList');
 	var usersCounter = container.find('.wcUsersCounter span');
 	var messagesInput = container.find('.wcInput');
+	var currentUserName = container.find('.wcCurrentUserName');
+	var progressBar = container.find('.wcMainProgressBar');
 	var isMessageMultiline = messagesInput.is("textarea");
 	var submitButton = container.find('.wcSubmitButton');
 	var currentRequest = null;
@@ -76,7 +78,6 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		} else {
 			messagesContainer.prepend(parsedMessage);
 		}
-		convertUTCMessagesTime(parsedMessage);
 		notifier.sendNotifications();
 	};
 	
@@ -86,6 +87,12 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	
 	function hideAllMessages() {
 		container.find('div.wcMessage').remove();
+	}
+	
+	function replaceUserNameInMessages(renderedUserName, messagesIds) {
+		for (var t = 0; t < messagesIds.length; t++) {
+			container.find('div[data-id="' + messagesIds[t] + '"] .wcMessageUser').html(renderedUserName);
+		}
 	}
 	
 	function showErrorMessage(message) {
@@ -98,11 +105,15 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		scrollMessages();
 	};
 	
-	function setBusyState() {
+	function setBusyState(showProgress) {
 		submitButton.attr('disabled', '1');
 		submitButton.attr('readonly', '1');
 		messagesInput.attr('placeholder', options.messages.message_sending);
 		messagesInput.attr('readonly', '1');
+		if (showProgress == true) {
+			progressBar.show();
+			progressBar.attr("value", "0");
+		}
 	};
 	
 	function setIdleState() {
@@ -110,6 +121,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		submitButton.attr('readonly', null);
 		messagesInput.attr('placeholder', options.messages.hint_message);
 		messagesInput.attr('readonly', null);
+		progressBar.hide();
 	};
 	
 	function initializeRefresher() {
@@ -130,7 +142,8 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 			url: messagesEndpoint,
 			data: {
 				channel: channel,
-				lastId: lastId
+				lastId: lastId,
+				checksum: options.checksum
 			}
 		}).success(onNewMessagesArrived);
 	};
@@ -149,7 +162,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 				
 				for (var x = 0; x < response.result.length; x++) {
 					var msg = response.result[x];
-					var messageId = msg['id'];
+					var messageId = parseInt(msg['id']);
 					if (messageId > lastId) {
 						lastId = messageId;
 					}
@@ -166,16 +179,8 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 				}
 			}
 			
-			if (response.actions) {
-				for (var actionName in response.actions) {
-					if (actionName == 'refreshUsersList') {
-						refreshUsersList(response.actions['refreshUsersList'].data);
-					}
-					if (actionName == 'refreshUsersCounter') {
-						refreshUsersCounter(response.actions['refreshUsersCounter'].data);
-					}
-				}
-			}
+			dateAndTimeRenderer.convertUTCMessagesTime(container, response.nowTime);
+			
 			if (response.error) {
 				showErrorMessage(response.error);
 			}
@@ -202,14 +207,24 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	};
 	
 	function sendMessageRequest(message, channel, attachments) {
-		setBusyState();
+		setBusyState(attachments.length > 0);
 		jQuery.ajax({
 			type: "POST",
 			url: messageEndpoint,
 			data: {
 				attachments: attachments,
 				channel: channel,
-				message: message
+				message: message,
+				checksum: options.checksum
+			},
+			progressUpload: function(evt) {
+				if (evt.lengthComputable) {
+					var percent = parseInt(evt.loaded /evt.total * 100);
+					if (percent > 100) {
+						percent = 100;
+					}
+					progressBar.attr('value', percent);
+				}
 			}
 		})
 		.success(onMessageSent)
@@ -262,34 +277,16 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		}
 	};
 	
-	function convertUTCMessagesTime(container) {
-		container.find('.wcMessageTime').each(function(index, element) {
-			element = jQuery(element);
-			if (element.html().length === 0) {
-				var date = dateFormatter.parseISODate(element.data('utc'));
-				var dateFormatStr = 'Y-m-d';
-				if (dateFormatter.formatDate(new Date(), dateFormatStr) == dateFormatter.formatDate(date, dateFormatStr)) {
-					element.html(dateFormatter.formatDate(date, 'H:i'));
-				} else {
-					element.html(dateFormatter.formatDate(date, dateFormatStr + ' H:i'));
-				}
-			}
-		});
-	}
-	
 	function refreshUsersList(data) {
-		var users = [];
-		for (var x = 0; x < data.length; x++) {
-			users.push(data[x].name);
-		}
-		usersListContainer.html(users.join('<br />'));
+		usersListContainer.html(data);
 	}
 	
 	function refreshUsersCounter(data) {
+		var total = data.total > 0 ? data.total : 1;
 		if (options.channelUsersLimit > 0) {
-			usersCounter.html(data.total + " / " + options.channelUsersLimit);
+			usersCounter.html(total + " / " + options.channelUsersLimit);
 		} else {
-			usersCounter.html(data.total);
+			usersCounter.html(total);
 		}
 	}
 	
@@ -313,7 +310,8 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 			url: messageDeleteEndpoint,
 			data: {
 				channel: channel,
-				messageId: messageId
+				messageId: messageId,
+				checksum: options.checksum
 			}
 		})
 		.success(function() {
@@ -328,6 +326,28 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 		container.on('click', 'a.wcMessageDeleteButton', onMessageDelete);
 	}
 	
+	(function addXhrProgressEvent(jQuery) {
+		var originalXhr = jQuery.ajaxSettings.xhr;
+		jQuery.ajaxSetup({
+			xhr: function() {
+				var req = originalXhr.call(jQuery.ajaxSettings), that = this;
+				if (req) {
+					if (typeof req.addEventListener == "function" && that.progress !== undefined) {
+						req.addEventListener("progress", function(evt) {
+							that.progress(evt);
+						}, false);
+					}
+					if (typeof req.upload == "object" && that.progressUpload !== undefined) {
+						req.upload.addEventListener("progress", function(evt) {
+							that.progressUpload(evt);
+						}, false);
+					}
+				}
+				return req;
+			}
+		});
+	})(jQuery);
+	
 	// DOM events:
 	messagesInput.keypress(onInputKeyPress);
 	messagesInput.keydown(onInputKeyDown);
@@ -338,14 +358,16 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateForm
 	this.start = function() {
 		initializeRefresher();
 		scrollMessages();
-		convertUTCMessagesTime(container);
+		dateAndTimeRenderer.convertUTCMessagesTime(container, options.nowTime);
 		onWindowResize();
 		attachEventListeners();
 	};
 	
 	this.scrollMessages = scrollMessages;
-	this.showMessage = showMessage;
 	this.showErrorMessage = showErrorMessage;
 	this.hideMessage = hideMessage;
 	this.hideAllMessages = hideAllMessages;
+	this.refreshUsersList = refreshUsersList;
+	this.refreshUsersCounter = refreshUsersCounter;
+	this.replaceUserNameInMessages = replaceUserNameInMessages;
 };

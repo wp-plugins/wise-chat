@@ -12,7 +12,7 @@ class WiseChatWidget extends WP_Widget {
 	
 	public function __construct() {
 		$widgetOps = array('classname' => 'WiseChatWidget', 'description' => 'Displays Wise Chat window' );
-		$this->WP_Widget('WiseChatWidget', 'Wise Chat Window', $widgetOps);
+		parent::__construct('WiseChatWidget', 'Wise Chat Window', $widgetOps);
 	}
  
 	public function form($instance) {
@@ -24,7 +24,7 @@ class WiseChatWidget extends WP_Widget {
 				<label for="<?php echo $this->get_field_id('channel'); ?>">
 					Channel: <input class="widefat" id="<?php echo $this->get_field_id('channel'); ?>" 
 								name="<?php echo $this->get_field_name('channel'); ?>" 
-								type="text" value="<?php echo attribute_escape($channel); ?>" />
+								type="text" value="<?php echo esc_attr($channel); ?>" />
 				</label>
 			</p>
 		<?php

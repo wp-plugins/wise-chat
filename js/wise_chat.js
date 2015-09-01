@@ -11,12 +11,13 @@ function WiseChatController(options) {
 	var imageViewer = new WiseChatImageViewer();
 	var dateFormatter = new WiseChatDateFormatter();
 	var messageAttachments = new WiseChatMessageAttachments(options, imageViewer);
-	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateFormatter, notifier);
+	var dateAndTimeRenderer = new WiseChatDateAndTimeRenderer(options, dateFormatter);
+	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier);
 	var settings = new WiseChatSettings(options, messages);
-	var actionsExecutor = new WiseChatActionsExecutor(options, messages);
+	var maintenanceExecutor = new WiseChatMaintenanceExecutor(options, messages);
 	
 	messages.start();
-	actionsExecutor.start();
+	maintenanceExecutor.start();
 };
 
 /**
@@ -45,6 +46,20 @@ function WiseChatDateFormatter() {
 	}
 	
 	/**
+	* Determines whether two dates have equal day, month and year.
+	* 
+	* @param {Date} firstDate
+	* @param {Date} secondDate
+	* 
+	* @return {Boolean}
+	*/
+	function isSameDate(firstDate, secondDate) {
+		var dateFormatStr = 'Y-m-d';
+		
+		return formatDate(firstDate, dateFormatStr) == formatDate(secondDate, dateFormatStr);
+	}
+	
+	/**
 	* Returns formatted date.
 	* 
 	* @param {Date} date Date to format as a string
@@ -62,9 +77,50 @@ function WiseChatDateFormatter() {
 		return format;
 	}
 	
+	/**
+	* Returns localized time without seconds.
+	* 
+	* @param {Date} date Date to format as a string
+	* 
+	* @return {String} Localized time
+	*/
+	function getLocalizedTime(date) {
+		if (typeof (date.toLocaleTimeString) != "undefined") {
+			var timeLocale = date.toLocaleTimeString();
+			if ((timeLocale.match(/:/g) || []).length == 2) {
+				timeLocale = timeLocale.replace(/:\d\d$/, '');
+				timeLocale = timeLocale.replace(/:\d\d /, ' ');
+				timeLocale = timeLocale.replace(/[A-Z]{2,4}\-\d{1,2}/, '');
+				timeLocale = timeLocale.replace(/[A-Z]{2,4}/, '');
+			}
+			
+			return timeLocale;
+		} else {
+			return formatDate(date, 'H:i');
+		}
+	}
+	
+	/**
+	* Returns localized date.
+	* 
+	* @param {Date} date Date to format as a string
+	* 
+	* @return {String} Localized date
+	*/
+	function getLocalizedDate(date) {
+		if (typeof (date.toLocaleDateString) != "undefined") {
+			return date.toLocaleDateString();
+		} else {
+			return formatDate(date, 'Y-m-d');
+		}
+	}
+	
 	// public API:
 	this.formatDate = formatDate;
 	this.parseISODate = parseISODate;
+	this.isSameDate = isSameDate;
+	this.getLocalizedTime = getLocalizedTime;
+	this.getLocalizedDate = getLocalizedDate;
 };
 
 /**
@@ -81,7 +137,9 @@ function WiseChatMessageAttachments(options, imageViewer) {
 	var messageAttachmentsPanel = container.find('.wcMessageAttachments');
 	var imageUploadPreviewImage = container.find('.wcImageUploadPreview');
 	var imageUploadFile = container.find('.wcImageUploadFile');
-	var imageUploadClearButton = container.find('.wcImageUploadClear');
+	var attachmentClearButton = container.find('.wcAttachmentClear');
+	var fileUploadFile = container.find('.wcFileUploadFile');
+	var fileUploadNamePreview = container.find('.wcFileUploadNamePreview');
 	var attachments = [];
 	
 	var canvas = container.find('.wcCanvasTemp');
@@ -91,8 +149,8 @@ function WiseChatMessageAttachments(options, imageViewer) {
 	}
 	canvas = canvas[0];
 	
-	function addAttachment(type, data) {
-		attachments.push({ type: type, data: data });
+	function addAttachment(type, data, name) {
+		attachments.push({ type: type, data: data, name: name });
 	}
 	
 	function showImageAttachment() {
@@ -109,7 +167,12 @@ function WiseChatMessageAttachments(options, imageViewer) {
 		
 		var fileReader = new FileReader();
 		var fileDetails = fileInput.files[0];
-		var extension = fileDetails.name.split('.').pop().toLowerCase();
+		if (fileDetails.size > options.attachmentsSizeLimit) {
+			alert(options.messages.messageSizeLimitError);
+			return;
+		}
+		
+		var extension = getExtension(fileDetails);
 		if (IMAGE_TYPES.indexOf(extension) > -1) {
 			if (extension === 'jpg') {
 				extension = 'jpeg';
@@ -120,6 +183,8 @@ function WiseChatMessageAttachments(options, imageViewer) {
 				resizeImageAndAddToAttachments(event.target.result, mimeType);
 			};
 			fileReader.readAsDataURL(fileDetails);
+		} else {
+			alert(options.messages.messageUnsupportedTypeOfFile);
 		}
 	}
 	
@@ -148,6 +213,7 @@ function WiseChatMessageAttachments(options, imageViewer) {
 			
 			imageSource = canvas.toDataURL(mimeType);
 			addAttachment('image', imageSource);
+			imageUploadPreviewImage.show();
 			imageUploadPreviewImage.attr('src', imageSource);
 			messageAttachmentsPanel.show();
 			imageUploadFile.val('');
@@ -156,8 +222,52 @@ function WiseChatMessageAttachments(options, imageViewer) {
 		tempImage.src = imageSource;
 	}
 	
+	function onFileUploadFileChange() {
+		var fileInput = fileUploadFile[0];
+		if (typeof FileReader === 'undefined' || fileInput.files.length === 0) {
+			return;
+		}
+		
+		var fileDetails = fileInput.files[0];
+		if (options.attachmentsValidFileFormats.indexOf(getExtension(fileDetails)) > -1) {
+			var fileReader = new FileReader();
+			var fileName = fileDetails.name;
+			
+			if (fileDetails.size > options.attachmentsSizeLimit) {
+				alert(options.messages.messageSizeLimitError);
+			} else {
+				fileReader.onload = function(event) {
+					clearAttachments();
+					addAttachment('file', event.target.result, fileName);
+					fileUploadNamePreview.html(fileName);
+					fileUploadNamePreview.show();
+					messageAttachmentsPanel.show();
+				};
+				fileReader.readAsDataURL(fileDetails);
+			}
+		} else {
+			alert(options.messages.messageUnsupportedTypeOfFile);
+		}
+	}
+	
+	function getExtension(fileDetails) {
+		if (typeof fileDetails.name !== 'undefined') {
+			var splitted = fileDetails.name.split('.');
+			if (splitted.length > 1) {
+				return splitted.pop().toLowerCase();
+			}
+		}
+		
+		return null;
+	}
+	
+	function resetInput(inputField) {
+		inputField.wrap('<form>').parent('form').trigger('reset');
+		inputField.unwrap();
+	}
+	
 	/**
-	* Returns array of prepared attachments.
+	* Returns an array of prepared attachments.
 	* 
 	* @return {Array}
 	*/
@@ -166,16 +276,22 @@ function WiseChatMessageAttachments(options, imageViewer) {
 	}
 	
 	/**
-	* Clears all prepared attachments.
+	* Clears all added attachments, resets and hides UI related to added attachments.
 	*/
 	function clearAttachments() {
 		attachments = [];
 		messageAttachmentsPanel.hide();
+		fileUploadNamePreview.hide();
+		fileUploadNamePreview.html('');
+		imageUploadPreviewImage.hide();
+		resetInput(fileUploadFile);
+		resetInput(imageUploadFile);
 	}
 	
 	// DOM events:
 	imageUploadFile.change(onImageUploadFileChange);
-	imageUploadClearButton.click(clearAttachments);
+	fileUploadFile.change(onFileUploadFileChange);
+	attachmentClearButton.click(clearAttachments);
 	imageUploadPreviewImage.click(showImageAttachment);
 	
 	// public API:
@@ -372,4 +488,82 @@ function WiseChatNotifier(options) {
 	
 	// public API:
 	this.sendNotifications = sendNotifications;
+}
+
+/**
+ * WiseChatDateAndTimeRenderer - renders date and time next to each message according to the settings.
+ *
+ * @version 1.0
+ * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ */
+function WiseChatDateAndTimeRenderer(options, dateFormatter) {
+	
+	var dateAndTimeMode = options.messagesTimeMode;
+	
+	function formatFullDateAndTime(date, nowDate, element) {
+		if (dateFormatter.isSameDate(nowDate, date)) {
+			element.html(dateFormatter.getLocalizedTime(date));
+		} else {
+			element.html(dateFormatter.getLocalizedDate(date) + ' ' + dateFormatter.getLocalizedTime(date));
+		}
+		element.attr('data-fixed', '1');
+	}
+	
+	function formatElapsedDateAndTime(date, nowDate, element) {
+		var yesterdayDate = new Date();
+		var diffSeconds = parseInt((nowDate.getTime() - date.getTime()) / 1000);
+		yesterdayDate.setDate(nowDate.getDate() - 1);
+		
+		var formattedDateAndTime = '';
+		var isFixed = false;
+		if (diffSeconds < 60) {
+			if (diffSeconds <= 0) {
+				diffSeconds = 1;
+			}
+			formattedDateAndTime = diffSeconds + ' ' + options.messages.messageSecAgo;
+		} else if (diffSeconds < 60 * 60) {
+			formattedDateAndTime = parseInt(diffSeconds / 60) + ' ' + options.messages.messageMinAgo;
+		} else if (dateFormatter.isSameDate(nowDate, date)) {
+			formattedDateAndTime = dateFormatter.getLocalizedTime(date);
+			isFixed = true;
+		} else if (dateFormatter.isSameDate(yesterdayDate, date)) {
+			formattedDateAndTime = options.messages.messageYesterday + ' ' + dateFormatter.getLocalizedTime(date);
+			isFixed = true;
+		} else {
+			formattedDateAndTime = dateFormatter.getLocalizedDate(date) + ' ' + dateFormatter.getLocalizedTime(date);
+			isFixed = true;
+		}
+		
+		element.html(formattedDateAndTime);
+		if (isFixed) {
+			element.attr('data-fixed', '1');
+		}
+	}
+	
+	/**
+	* Format all elements containing dates withing parent container.
+	* 
+	* @param {jQuery} date Date to format as a string
+	* @param {String} nowISODate Now date
+	* 
+	*/
+	function convertUTCMessagesTime(parentContainer, nowISODate) {
+		if (dateAndTimeMode === 'hidden') {
+			return;
+		}
+		parentContainer.find('.wcMessageTime:not([data-fixed])').each(function(index, element) {
+			element = jQuery(element);
+			
+			var date = dateFormatter.parseISODate(element.data('utc'));
+			var nowDate = dateFormatter.parseISODate(nowISODate);
+			if (dateAndTimeMode === 'elapsed') {
+				formatElapsedDateAndTime(date, nowDate, element);
+			} else {
+				formatFullDateAndTime(date, nowDate, element);
+			}
+		});
+	}
+	
+	// public API:
+	this.convertUTCMessagesTime = convertUTCMessagesTime;
 }

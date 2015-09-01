@@ -8,6 +8,13 @@
  */
 class WiseChatUserService {
 	const USER_SETTINGS_COOKIE_NAME = 'wcUserSettings';
+	const USERS_ACTIVITY_TIME_FRAME = 80;
+	const USERS_PRESENCE_TIME_FRAME = 86400;
+	
+	/**
+	* @var WiseChatActionsDAO
+	*/
+	private $actionsDAO;
 
 	/**
 	* @var WiseChatMessagesDAO
@@ -18,6 +25,11 @@ class WiseChatUserService {
 	* @var WiseChatUsersDAO
 	*/
 	private $usersDAO;
+	
+	/**
+	* @var WiseChatChannelUsersDAO
+	*/
+	private $channelUsersDAO;
 	
 	/**
 	* @var WiseChatOptions
@@ -41,15 +53,83 @@ class WiseChatUserService {
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
 		$this->usersDAO = new WiseChatUsersDAO();
+		$this->actionsDAO = new WiseChatActionsDAO();
+		$this->channelUsersDAO = new WiseChatChannelUsersDAO();
 		$this->messagesDAO = new WiseChatMessagesDAO();
 	}
 	
 	/**
-	* Initializes a cookie for storing user settings.
+	* Maintenance actions performetd on init phase.
+	*
+	* @return null
 	*/
-	public function initializeCookie() {
+	public function initMaintenance() {
 		if (!$this->isUserCookieAvailable()) {
 			$this->setUserCookie('{}');
+		}
+	}
+	
+	/**
+	* Maintenance actions performetd at start-up.
+	*
+	* @param string $channel
+	*
+	* @return null
+	*/
+	public function startUpMaintenance($channel) {
+		$this->usersDAO->resetEventTracker('usersList', $channel);
+	}
+	
+	/**
+	* Maintenance actions performed periodically.
+	*
+	* @param string $channel Given channel
+	*
+	* @return null
+	*/
+	public function periodicMaintenance($channel) {
+		if ($this->usersDAO->shouldTriggerEvent('ping', $channel)) {
+			$this->markPresenceInChannel($channel);
+		}
+		
+		$this->refreshChannelUsersData();
+	}
+	
+	/**
+	* Refreshes channel users data.
+	*
+	* @return null
+	*/
+	public function refreshChannelUsersData() {
+		$this->channelUsersDAO->deleteOlderByLastActivityTime(self::USERS_PRESENCE_TIME_FRAME);
+		$this->channelUsersDAO->updateActiveForOlderByLastActivityTime(false, self::USERS_ACTIVITY_TIME_FRAME);
+	}
+	
+	/**
+	* If the user has logged in replace anonymous user name with WordPress user name.
+	* Method preserves originally generated user name in case the user logs out.
+	*
+	* @return null
+	*/
+	public function switchUser() {
+		$currentWPUser = $this->usersDAO->getCurrentWpUser();
+		$currentUserName = $this->usersDAO->getUserName();
+		
+		if ($currentWPUser !== null) {
+			$displayName = $currentWPUser->display_name;
+			if (strlen($displayName) > 0 && $currentUserName != $displayName) {
+				if ($this->usersDAO->getOriginalUserName() === null) {
+					$this->usersDAO->setOriginalUserName($currentUserName);
+				}
+				
+				$this->usersDAO->setUserName($displayName);
+				$this->refreshNewUserName($this->usersDAO->getOriginalUserName(), $displayName);
+			}
+		} else {
+			if ($this->usersDAO->getOriginalUserName() !== null && $currentUserName != $this->usersDAO->getOriginalUserName()) {
+				$this->usersDAO->setUserName($this->usersDAO->getOriginalUserName());
+				$this->refreshNewUserName($currentUserName, $this->usersDAO->getOriginalUserName());
+			}
 		}
 	}
 	
@@ -60,7 +140,7 @@ class WiseChatUserService {
 	* @param string $channel Name of the current channel
 	*
 	* @return string New name
-	* @throws Exception If an error occurre
+	* @throws Exception If an error occurres
 	*/
 	public function changeUserName($userName, $channel) {
 		if (!$this->options->isOptionEnabled('allow_change_user_name')) {
@@ -76,44 +156,43 @@ class WiseChatUserService {
 			throw new Exception($this->options->getOption('message_error_1', 'Only letters, number, spaces, hyphens and underscores are allowed'));
 		}
 		
-		$wpUser = $this->usersDAO->getWpUserByDisplayName($userName);
-		if ($wpUser !== null) {
-			throw new Exception($this->options->getOption('message_error_2', 'This name is already occupied'));
+		$occupiedException = new Exception($this->options->getOption('message_error_2', 'This name is already occupied'));
+		
+		if ($this->usersDAO->getWpUserByDisplayName($userName) !== null) {
+			throw $occupiedException;
 		}
 		
-		$wpUser = $this->usersDAO->getWpUserByLogin($userName);
-		if ($wpUser !== null) {
-			throw new Exception($this->options->getOption('message_error_2', 'This name is already occupied'));
+		if ($this->usersDAO->getWpUserByLogin($userName) !== null) {
+			throw $occupiedException;
 		}
 		
-		if (in_array($userName, array('System'))) {
-			throw new Exception($this->options->getOption('message_error_2', 'This name is already occupied'));
+		$prefix = $this->options->getOption('user_name_prefix', 'Anonymous');
+		if (preg_match("/^{$prefix}/", $userName) || in_array($userName, array('System'))) {
+			throw $occupiedException;
 		}
 		
 		$oldUserName = $this->usersDAO->getUserName();
 		$this->usersDAO->setUserName($userName);
 		$newUserName = $this->usersDAO->getUserName();
 		
-		$messages = $this->messagesDAO->getLastMessagesByUserName($newUserName);
-		if (count($messages) > 0) {
+		if ($this->channelUsersDAO->isUserNameOccupied($newUserName, session_id())) {
 			$this->usersDAO->setUserName($oldUserName);
-			throw new Exception($this->options->getOption('message_error_2', 'This name is already occupied'));
+			throw $occupiedException;
 		} else {
-			$this->messagesDAO->deletePingMessagesByUserName($oldUserName);
-			$this->messagesDAO->addPingMessage($newUserName, $channel);
-			$this->usersDAO->resetEventTracker('usersList', $channel);
+			$this->refreshNewUserName($oldUserName, $newUserName, $channel);
+			$this->usersDAO->setOriginalUserName($newUserName);
 			
 			return $newUserName;
 		}
 	}
 	
 	/**
-	* Sets propertyName-propertyValue pair in the user's settings cookie.
+	* Sets propertyName-propertyValue pair in the user's settings.
 	*
 	* @param string $propertyName
 	* @param string $propertyValue
 	*
-	* @throws Exception If an error occurre
+	* @throws Exception If an error occurred
 	*/
 	public function setUserPropertySetting($propertyName, $propertyValue) {
 		if (!in_array($propertyName, array_keys($this->defaultSettings))) {
@@ -148,11 +227,64 @@ class WiseChatUserService {
 	}
 	
 	/**
+	* Marks presence of the current user in the given channel.
+	*
+	* @param string $channel
+	*
+	* @return null
+	*/
+	private function markPresenceInChannel($channel) {
+		$user = $this->usersDAO->getUserName();
+		if ($this->channelUsersDAO->getByUserAndChannel($user, $channel) === null) {
+			$this->channelUsersDAO->create($user, $channel, session_id(), $this->getRemoteAddress());
+		} else {
+			$this->channelUsersDAO->updateLastActivityTimeAndActive($user, $channel, time(), true);
+		}
+	}
+	
+	/**
+	* Refreshes new username.
+	*
+	* @param string $oldUserName
+	* @param string $newUserName
+	* @param string $channel
+	*
+	* @return null
+	*/
+	private function refreshNewUserName($oldUserName, $newUserName, $channel = null) {
+		$this->channelUsersDAO->updateUser($oldUserName, $newUserName);
+		$this->usersDAO->resetEventTracker('usersList', $channel);
+		$channelUsers = $this->channelUsersDAO->getAllBySessionId(session_id());
+		$channelUsersIds = array();
+		foreach ($channelUsers as $channelUser) {
+			$channelUsersIds[] = $channelUser->id;
+		}
+		if (count($channelUsersIds) > 0) {
+			$this->messagesDAO->updateUserByChanellUsersIds($newUserName, $channelUsersIds);
+			
+			$renderer = new WiseChatRenderer();
+			$messages = $this->messagesDAO->getMessagesByChanellUsersIds($channelUsersIds);
+			if (count($messages) > 0) {
+				$messagesIds = array();
+				$renderedUserName = null;
+				foreach ($messages as $message) {
+					$messagesIds[] = $message->id;
+					if ($renderedUserName === null) {
+						$renderedUserName = $renderer->getRenderedUserName($message);
+					}
+				}
+				
+				$this->actionsDAO->publishAction('replaceUserNameInMessages', array('renderedUserName' => $renderedUserName, 'messagesIds' => $messagesIds));
+			}
+		}
+	}
+	
+	/**
 	* Returns all settings from the cookie.
 	*
 	* @return array
 	*/
-	public function getUserCookieSettings() {
+	private function getUserCookieSettings() {
 		if ($this->isUserCookieAvailable()) {
 			$cookieValue = stripslashes_deep($_COOKIE[self::USER_SETTINGS_COOKIE_NAME]);
 			return json_decode($cookieValue, true);
@@ -161,22 +293,15 @@ class WiseChatUserService {
 		}
 	}
 	
-	/**
-	* Maintenance actions performetd at start-up.
-	*
-	* @param string $channel
-	*
-	* @return null
-	*/
-	public function startUpMaintenance($channel) {
-		$this->usersDAO->resetEventTracker('usersList', $channel);
-	}
-	
 	private function setUserCookie($value) {
 		setcookie(self::USER_SETTINGS_COOKIE_NAME, $value, strtotime('+60 days'), '/');
 	}
 	
 	private function isUserCookieAvailable() {
 		return array_key_exists(self::USER_SETTINGS_COOKIE_NAME, $_COOKIE);
+	}
+	
+	private function getRemoteAddress() {
+		return $_SERVER['REMOTE_ADDR'];
 	}
 }

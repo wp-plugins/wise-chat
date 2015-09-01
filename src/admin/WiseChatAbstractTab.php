@@ -9,6 +9,11 @@
 abstract class WiseChatAbstractTab {
 
 	/**
+	* @var WiseChatChannelsDAO
+	*/
+	protected $channelsDAO;
+
+	/**
 	* @var WiseChatBansDAO
 	*/
 	protected $bansDAO;
@@ -40,6 +45,7 @@ abstract class WiseChatAbstractTab {
 	
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
+		$this->channelsDAO = new WiseChatChannelsDAO();
 		$this->bansDAO = new WiseChatBansDAO();
 		$this->usersDAO = new WiseChatUsersDAO();
 		$this->messagesDAO = new WiseChatMessagesDAO();

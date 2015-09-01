@@ -32,40 +32,31 @@ class WiseChatMessagesService {
 	/**
 	* Maintenance actions performed at start-up.
 	*
+	* @param string $channel Given channel
+	*
 	* @return null
 	*/
-	public function startUpMaintenance() {
-		$this->autoDeleteOldMessages();
+	public function startUpMaintenance($channel) {
+		$this->autoDeleteOldMessages($channel);
 	}
 	
 	/**
 	* Maintenance actions performed periodically.
 	*
+	* @param string $channel Given channel
+	*
 	* @return null
 	*/
-	public function periodicMaintenance() {
-		$this->autoDeleteOldMessages();
+	public function periodicMaintenance($channel) {
+		$this->autoDeleteOldMessages($channel);
 	}
 	
-	private function autoDeleteOldMessages() {
+	private function autoDeleteOldMessages($channel) {
 		$minutesThreshold = intval($this->options->getOption('auto_clean_after', 0));
 		
 		if ($minutesThreshold > 0) {
-			$messages = $this->messagesDAO->getMessagesByTimeThreshold($minutesThreshold);
-			if (is_array($messages) && count($messages) > 0) {
-				$this->messagesDAO->deleteByTimeThreshold($minutesThreshold);
-				
-				$ids = array();
-				foreach ($messages as $message) {
-					$ids[] = $message->id;
-					
-					// remove related attachments:
-					$attachementIds = WiseChatImagesPostFilter::getImageIds(htmlspecialchars($message->text, ENT_QUOTES, 'UTF-8'));
-					foreach ($attachementIds as $attachementId) {
-						wp_delete_attachment(intval($attachementId), true);
-					}
-				}
-				
+			$ids = $this->messagesDAO->deleteByTimeThresholdAndChannel($minutesThreshold, $channel);
+			if (count($ids) > 0) {
 				$this->actionsDAO->publishAction('deleteMessages', array('ids' => $ids));
 			}
 		}
