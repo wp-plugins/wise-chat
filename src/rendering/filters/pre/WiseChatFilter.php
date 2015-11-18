@@ -3,14 +3,13 @@
 /**
  * Wise Chat bad words filter.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatFilter {
-	const BAD_WORDS_FILE = '/../../../data/bad_words.txt';
+	const BAD_WORDS_FILE = '/../../../../data/bad_words.txt';
 	public static $words = null;
 	
-	public static function filter($text) {
+	public static function filter($text, $replacementText = null) {
 		if (self::$words === null) {
 			self::$words = file(dirname(__FILE__).self::BAD_WORDS_FILE, FILE_IGNORE_NEW_LINES);
 		}
@@ -34,7 +33,7 @@ class WiseChatFilter {
 				}
 				
 				// masked word:
-				$masked = self::getMaskedWordMb($word);
+				$masked = self::getMaskedWordMb($word, $replacementText);
 				
 				// compose regexp for the word:
 				$regexp = mb_substr($word, 0, 1);
@@ -68,7 +67,7 @@ class WiseChatFilter {
 				}
 				
 				// masked word:
-				$masked = self::getMaskedWord($word);
+				$masked = $replacementText !== null ? $replacementText : self::getMaskedWord($word);
 				
 				// compose regexp for the word:
 				$regexp = substr($word, 0, 1);
@@ -106,7 +105,9 @@ class WiseChatFilter {
 		return substr($word, 0, 1).str_repeat('*', strlen($word) - 2).substr($word, strlen($word) - 1);
 	}
 	
-	private static function getMaskedWordMb($word) {
-		return mb_substr($word, 0, 1).str_repeat('*', mb_strlen($word) - 2).mb_substr($word, mb_strlen($word) - 1);
+	private static function getMaskedWordMb($word, $replacementText = null) {
+        $replacement = $replacementText !== null ? $replacementText : str_repeat('*', mb_strlen($word) - 2);
+
+		return mb_substr($word, 0, 1).$replacement.mb_substr($word, mb_strlen($word) - 1);
 	}
 }

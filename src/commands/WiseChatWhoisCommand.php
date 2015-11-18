@@ -1,29 +1,31 @@
 <?php
 
-require_once "WiseChatAbstractCommand.php";
-
 /**
  * Wise Chat command: /whois [userName]
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatWhoisCommand extends WiseChatAbstractCommand {
-
 	public function execute() {
-		$user = isset($this->arguments[0]) ? $this->arguments[0] : null;
-		
-		if ($user !== null) {
-			$channelUser = $this->channelUsersDAO->getByUserAndChannel($user, $this->channel);
-			if ($channelUser !== null) {
-				$details = sprintf("User: %s, IP: %s", $user, $channelUser->ip);
-				
-				$this->addMessage($details);
-			} else {
-				$this->addMessage('User was not found');
-			}
-		} else {
-			$this->addMessage('Please specify the user');
-		}
+		$userName = isset($this->arguments[0]) ? $this->arguments[0] : null;
+		if ($userName === null) {
+            $this->addMessage('Please specify the user');
+            return;
+        }
+
+        $user = $this->usersDAO->getLatestByName($userName);
+        if ($user === null) {
+            $this->addMessage('User was not found');
+            return;
+        }
+
+        $channelUser = $this->channelUsersDAO->getActiveByUserIdAndChannelId($user->getId(), $this->channel->getId());
+        if ($channelUser !== null) {
+            $details = sprintf("User: %s, IP: %s", $userName, $user->getIp());
+
+            $this->addMessage($details);
+        } else {
+            $this->addMessage('User was not found');
+        }
 	}
 }

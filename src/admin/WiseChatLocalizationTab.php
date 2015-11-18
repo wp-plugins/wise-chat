@@ -3,13 +3,13 @@
 /**
  * Wise Chat admin localization settings tab class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatLocalizationTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
+			array('_section', 'Localization Settings'),
 			array(
 				'hint_message', 'Hint Message', 'stringFieldCallback', 'string',
 				'A hint message displayed in the message input field'
@@ -24,18 +24,22 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			),
 			array('window_title', 'Window Title', 'stringFieldCallback', 'string', 'Title of the messages window'),
 			array('message_save', '"Save" message', 'stringFieldCallback', 'string'),
+			array('message_reset', '"Reset" message', 'stringFieldCallback', 'string'),
 			array('message_name', '"Name" message', 'stringFieldCallback', 'string'),
 			array('message_customize', '"Customize" message', 'stringFieldCallback', 'string'),
 			array('message_sending', '"Sending" message', 'stringFieldCallback', 'string'),
 			array('message_mute_sounds', '"Mute sounds" message', 'stringFieldCallback', 'string'),
+			array('message_text_color', '"Text color" message', 'stringFieldCallback', 'string'),
 			array('message_total_users', '"Total users" message', 'stringFieldCallback', 'string'),
 			array('message_sec_ago', '"sec. ago" message', 'stringFieldCallback', 'string'),
 			array('message_min_ago', '"min. ago" message', 'stringFieldCallback', 'string'),
 			array('message_yesterday', '"yesterday" message', 'stringFieldCallback', 'string'),
+            array('message_insert_emoticon', '"Insert an emoticon" message', 'stringFieldCallback', 'string'),
 			array('message_picture_upload_hint', '"Upload a picture" message', 'stringFieldCallback', 'string'),
 			array('message_attach_file_hint', '"Attach a file" message', 'stringFieldCallback', 'string'),
 			array('message_channel_password_authorization_hint', 'Channel Authorization Hint', 'stringFieldCallback', 'string'),
 			array('message_login', '"Log in" message', 'stringFieldCallback', 'string'),
+			array('message_enter_user_name', '"Enter your username" message', 'stringFieldCallback', 'string'),
 			
 			array('message_error_1', 'Message error #1', 'stringFieldCallback', 'string', 'Message: "Only letters, number, spaces, hyphens and underscores are allowed"'),
 			array('message_error_2', 'Message error #2', 'stringFieldCallback', 'string', 'Message: "This name is already occupied"'),
@@ -56,6 +60,7 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			'user_name_prefix' => 'Anonymous',
 			'message_submit_button_caption' => 'Send',
 			'message_save' => 'Save',
+			'message_reset' => 'Reset',
 			'message_name' => 'Name',
 			'message_customize' => 'Customize',
 			'message_sending' => 'Sending ...',
@@ -71,14 +76,17 @@ class WiseChatLocalizationTab extends WiseChatAbstractTab {
 			'message_error_10' => 'You cannot enter the chat due to the limit of channels you can participate simultaneously.',
 			'window_title' => '',
 			'message_mute_sounds' => 'Mute sounds',
+			'message_text_color' => 'Text color',
 			'message_total_users' => 'Total users',
 			'message_sec_ago' => 'sec. ago',
 			'message_min_ago' => 'min. ago',
 			'message_yesterday' => 'yesterday',
+            'message_insert_emoticon' => 'Insert an emoticon',
 			'message_picture_upload_hint' => 'Upload a picture',
 			'message_attach_file_hint' => 'Attach a file',
 			'message_channel_password_authorization_hint' => 'This channel is protected. Enter your password:',
-			'message_login' => 'Log in'
+			'message_login' => 'Log in',
+			'message_enter_user_name' => 'Enter your username'
 		);
 	}
 }

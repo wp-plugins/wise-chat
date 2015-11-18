@@ -3,12 +3,10 @@
 /**
  * Wise Chat attachments services class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatAttachmentsService {
 	const UPLOAD_FILE_NAME = '_wise_chat_upload_attachment';
-	const ATTACHMENT_SIZE_LIMIT = 2097152; // 2 MB
 	
 	/**
 	* @var string
@@ -106,7 +104,7 @@ class WiseChatAttachmentsService {
 	* @return integer
 	*/
 	public function getSizeLimit() {
-		return self::ATTACHMENT_SIZE_LIMIT;
+		return $this->options->getIntegerOption('attachments_size_limit', 3145728);
 	}
 	
 	/**
@@ -273,7 +271,7 @@ class WiseChatAttachmentsService {
 			}
 			
 			$fileSize = filesize($this->tempFileName);
-			if ($fileSize > self::ATTACHMENT_SIZE_LIMIT) {
+			if ($fileSize > $this->options->getIntegerOption('attachments_size_limit', 3145728)) {
 				$this->logError('Attachment is to big: '.$fileSize.' bytes');
 				return null;
 			}

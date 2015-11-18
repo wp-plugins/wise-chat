@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Wise Chat CSS styles renderer class.
+ * Wise Chat CSS styles rendering.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatCssRenderer {
 	
@@ -38,18 +37,59 @@ class WiseChatCssRenderer {
 		$this->containerId = $containerId;
 		$this->definitions = array();
 		
-		$this->addDefinition('.wcWpMessage', 'text_color_logged_user', 'color');
-		$this->addDefinition('.wcWpMessage a', 'text_color_logged_user', 'color');
+		$this->addDefinition('*', 'text_color_chat', 'color');
+		
+		if ($this->options->isOptionNotEmpty('text_size_chat')) {
+			$this->addDefinition('', 'text_size_chat', 'font-size');
+			$this->addRawDefinition('*', 'font-size', 'inherit');
+		}
+		
+		$this->addDefinition('', 'background_color_chat', 'background-color');
+		$this->addDefinition('.wcControls', 'background_color_chat', 'background-color');
+		if ($this->options->isOptionNotEmpty('background_color_chat')) {
+			$this->addRawDefinition('.wcControls', 'background', 'none');
+			$this->addDefinition('.wcControls', 'background_color_chat', 'background-color');
+		}
+		
 		$this->addDefinition('.wcMessages', 'background_color', 'background-color');
-		$this->addDefinition('.wcUsersList', 'background_color', 'background-color');
-		$this->addDefinition('.wcInput', 'background_color_input', 'background-color');
-		$this->addDefinition('.wcInput', 'text_color', 'color');
-		$this->addDefinition('.wcMessages', 'text_color', 'color');
-		$this->addDefinition('.wcUsersList', 'text_color', 'color');
-		$this->addDefinition('.wcCurrentUserName', 'text_color', 'color');
+		
+		$this->addDefinition('.wcMessages .wcMessage *', 'text_color', 'color');
+		
+		$this->addDefinition('.wcMessages .wcMessageUser', 'text_color_user', 'color');
+		$this->addDefinition('.wcMessages .wcMessageUser a', 'text_color_user', 'color');
+		
+		$this->addDefinition('.wcWpMessage .wcMessageUser', 'text_color_logged_user', 'color');
+		$this->addDefinition('.wcWpMessage .wcMessageUser a', 'text_color_logged_user', 'color');
+		
+		if ($this->options->isOptionNotEmpty('text_size')) {
+			$this->addDefinition('.wcMessages', 'text_size', 'font-size');
+			$this->addRawDefinition('.wcMessages *', 'font-size', 'inherit');
+		}
+		
+		$this->addDefinition('.wcControls', 'background_color_input', 'background-color');
+		$this->addDefinition('.wcControls span', 'background_color_input', 'background-color');
+		$this->addDefinition('.wcControls a', 'background_color_input', 'background-color');
+		$this->addDefinition('.wcControls label', 'background_color_input', 'background-color');
+		
+		$this->addDefinition('.wcControls', 'text_color_input_field', 'color');
+		$this->addDefinition('.wcControls span', 'text_color_input_field', 'color');
+		$this->addDefinition('.wcControls a', 'text_color_input_field', 'color');
+		$this->addDefinition('.wcControls label', 'text_color_input_field', 'color');
+		
+		$this->addDefinition('.wcUsersList', 'background_color_users_list', 'background-color');
+		$this->addDefinition('.wcUsersList', 'text_color_users_list', 'color');
+		$this->addDefinition('.wcUsersList *', 'text_color_users_list', 'color');
+		
+		if ($this->options->isOptionNotEmpty('text_size_users_list')) {
+			$this->addDefinition('.wcUsersList', 'text_size_users_list', 'font-size');
+			$this->addRawDefinition('.wcUsersList *', 'font-size', 'inherit');
+		}
+		
 		$this->addLengthDefinition('', 'chat_width', 'width');
 		$this->addLengthDefinition('.wcMessages', 'chat_height', 'height');
 		$this->addLengthDefinition('.wcUsersList', 'chat_height', 'height');
+
+		$this->addUsersListWidthDefinition();
 		
 		return $this->getDefinitions();
 	}
@@ -68,7 +108,7 @@ class WiseChatCssRenderer {
 	}
 	
 	/**
-	* Adds single style definition.
+	* Adds a single style definition.
 	*
 	* @param string $cssSelector
 	* @param string $property
@@ -78,9 +118,22 @@ class WiseChatCssRenderer {
 	*/
 	private function addDefinition($cssSelector, $property, $cssProperty) {
 		if ($this->options->isOptionNotEmpty($property)) {
-			$fullCssSelector = sprintf("#%s %s", $this->containerId, $cssSelector);
-			$this->definitions[$fullCssSelector][] = sprintf("%s: %s;", $cssProperty, $this->options->getOption($property));
+			$this->addRawDefinition($cssSelector, $cssProperty, $this->options->getOption($property));
 		}
+	}
+	
+	/**
+	* Adds a raw style definition.
+	*
+	* @param string $cssSelector
+	* @param string $property
+	* @param string $value
+	*
+	* @return null
+	*/
+	private function addRawDefinition($cssSelector, $property, $value) {
+		$fullCssSelector = sprintf("#%s %s", $this->containerId, $cssSelector);
+		$this->definitions[$fullCssSelector][] = sprintf("%s: %s;", $property, $value);
 	}
 	
 	/**
@@ -94,13 +147,22 @@ class WiseChatCssRenderer {
 	*/
 	private function addLengthDefinition($cssSelector, $lengthProperty, $cssProperty) {
 		if ($this->options->isOptionNotEmpty($lengthProperty)) {
-			$fullCssSelector = sprintf("#%s %s", $this->containerId, $cssSelector);
 			$value = $this->options->getOption($lengthProperty);
 			if (preg_match('/^\d+$/', $value)) {
 				$value .= 'px';
 			}
 			if (preg_match('/^\d+((px)|%)$/', $value)) {
-				$this->definitions[$fullCssSelector][] = sprintf("%s: %s;", $cssProperty, $value);
+				$this->addRawDefinition($cssSelector, $cssProperty, $value);
+			}
+		}
+	}
+
+	private function addUsersListWidthDefinition() {
+		if ($this->options->isOptionNotEmpty('users_list_width')) {
+			$width = $this->options->getIntegerOption('users_list_width');
+			if ($width > 1 && $width < 99) {
+				$this->addRawDefinition('.wcUsersList', 'width', $width.'%');
+				$this->addRawDefinition('.wcMessages', 'width', (100 - $width - 1).'%');
 			}
 		}
 	}

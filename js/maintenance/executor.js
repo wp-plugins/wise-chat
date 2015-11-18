@@ -1,8 +1,7 @@
 /**
  * Wise Chat maintenance services.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 function WiseChatMaintenanceExecutor(options, wiseChatMessages) {
 	var REFRESH_TIMEOUT = 10000;
@@ -24,6 +23,20 @@ function WiseChatMaintenanceExecutor(options, wiseChatMessages) {
 	function isRequestStillRunning() {
 		return request !== null && request.readyState > 0 && request.readyState < 4;
 	}
+
+	function onMaintenanceRequestError(jqXHR, textStatus, errorThrown) {
+		try {
+			var response = jQuery.parseJSON(jqXHR.responseText);
+			if (response.error) {
+				wiseChatMessages.showErrorMessage('Maintenance error: ' + response.error);
+			} else {
+				wiseChatMessages.showErrorMessage('Unknown maintenance error: ' + errorThrown);
+			}
+		}
+		catch (e) {
+			wiseChatMessages.showErrorMessage('Maintenance fatal error: ' + errorThrown);
+		}
+	};
 	
 	function performMaintenanceRequest() {
 		if (isRequestStillRunning()) {
@@ -33,15 +46,13 @@ function WiseChatMaintenanceExecutor(options, wiseChatMessages) {
 		request = jQuery.ajax({
 			url: ENDPOINT_URL,
 			data: {
-				lastActionId: lastActionId, 
-				channel: options.channel, 
+				lastActionId: lastActionId,
+                channelId: options.channelId,
 				checksum: options.checksum
 			}
 		})
 		.success(analyzeResponse)
-		.error(function(jqXHR, textStatus, errorThrown) {
-			wiseChatMessages.showErrorMessage('Maintenance server error occurred: ' + errorThrown);
-		});
+		.error(onMaintenanceRequestError);
 	};
 	
 	function analyzeResponse(data) {
@@ -84,7 +95,7 @@ function WiseChatMaintenanceExecutor(options, wiseChatMessages) {
 						deleteMessagesAction(commandData);
 						break;
 					case 'deleteAllMessagesFromChannel':
-						if (commandData.channel == options.channel) {
+						if (commandData.channelId == options.channelId) {
 							wiseChatMessages.hideAllMessages();
 						}
 						break;
@@ -93,6 +104,15 @@ function WiseChatMaintenanceExecutor(options, wiseChatMessages) {
 						break;
 					case 'replaceUserNameInMessages':
 						wiseChatMessages.replaceUserNameInMessages(commandData.renderedUserName, commandData.messagesIds);
+						break;
+					case 'refreshPlainUserName':
+						wiseChatMessages.refreshPlainUserName(commandData.name);
+						break;
+					case 'showErrorMessage':
+						wiseChatMessages.showErrorMessage(commandData.message);
+						break;
+					case 'setMessagesProperty':
+						wiseChatMessages.setMessagesProperty(commandData);
 						break;
 				}
 			}

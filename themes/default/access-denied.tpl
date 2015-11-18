@@ -1,9 +1,9 @@
 <link rel='stylesheet' href='{{ themeStyles }}' type='text/css' media='all' />
 
 <div class='wcContainer'>
-	{% if showWindowTitle %}
+	{% if windowTitle %}
 		<div class='wcWindowTitle'>{{ windowTitle }}</div>
-	{% endif showWindowTitle %}
+	{% endif windowTitle %}
 	
 	<div class="wcWindowContent">
 		<div class='wcError {{ cssClass }}'>{{ errorMessage }}</div>

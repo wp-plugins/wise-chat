@@ -3,18 +3,18 @@
 /**
  * Wise Chat admin channels settings tab class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatChannelsTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
+			array('_section', 'Channels Settings'),
 			array('channels', 'Channels', 'channelsChallback', 'void'),
-			array('admin_actions', 'Actions', 'adminActionsCallback', 'void'),
-			array('auto_clean_after', 'Auto-clean Messages', 'stringFieldCallback', 'string', 'Deletes messages older than given amount of minutes. Empty field means no messages will be deleted.'),
-			array('channel_users_limit', 'Users Limit', 'stringFieldCallback', 'string', 'Maximum amount of users allowed to enter a channel. Empty field means there is no limit.'),
-			array('channels_limit', 'Channels Limit', 'stringFieldCallback', 'string', 'Maximum amount of channels that an user can participate simultaneously. Empty field means there is no limit.'),
+			array('admin_actions', 'Group Actions', 'adminActionsCallback', 'void'),
+			array('auto_clean_after', 'Auto-remove Messages', 'stringFieldCallback', 'integer', 'The chat will delete messages older than given amount of minutes. Empty field means no messages will be deleted.'),
+			array('channel_users_limit', 'Users Limit', 'stringFieldCallback', 'integer', 'Maximum amount of users allowed to enter a channel. Empty field means there is no limit.'),
+			array('channels_limit', 'Channels Limit', 'stringFieldCallback', 'integer', 'Maximum amount of channels that an user can participate simultaneously. Empty field means there is no limit.'),
 		);
 	}
 	
@@ -29,10 +29,11 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 	}
 	
 	public function clearChannelAction() {
-		$channel = $_GET['channel'];
+		$channelName = $_GET['channel'];
 		
-		$ban = $this->messagesDAO->deleteByChannel($channel);
-		$this->actionsDAO->publishAction('deleteAllMessagesFromChannel', array('channel' => $channel));
+		$this->messagesService->deleteByChannel($channelName);
+        $channel = $this->channelsDAO->getByName($channelName);
+		$this->actions->publishAction('deleteAllMessagesFromChannel', array('channelId' => $channel->getId()));
 		$this->addMessage('All messages from the channel have been deleted');
 	}
 	
@@ -51,14 +52,14 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 		header("Content-Disposition: attachment;filename={$filename}");
 		header("Content-Transfer-Encoding: binary");
 		
-		$messages = $this->messagesDAO->getMessages($channel);
+		$messages = $this->messagesService->getAllByChannelName($channel);
 		
 		ob_start();
 		$df = fopen("php://output", 'w');
 		fputcsv($df, array('ID', 'Time', 'User', 'Message', 'IP'));
 		foreach ($messages as $message) {
 			$messageArray = array(
-				$message->id, date("Y-m-d H:i:s", $message->time), $message->user, $message->text, $message->ip
+				$message->getId(), date("Y-m-d H:i:s", $message->getTime()), $message->getUserName(), $message->getText(), $message->getIp()
 			);
 			fputcsv($df, $messageArray);
 		}
@@ -70,8 +71,8 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 	}
 	
 	public function clearAllChannelsAction() {
-		$this->messagesDAO->deleteAll();
-		$this->actionsDAO->publishAction('deleteAllMessages', array());
+		$this->messagesService->deleteAll();
+		$this->actions->publishAction('deleteAllMessages', array());
 		$this->addMessage('All messages have been deleted');
 	}
 	
@@ -81,7 +82,8 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 		
 		$channel = $this->channelsDAO->getByName($channelName);
 		if ($channel !== null) {
-			$this->channelsDAO->updatePassword($channel->id, md5($password));
+			$channel->setPassword(md5($password));
+			$this->channelsDAO->save($channel);
 			$this->addMessage('The password has been set for the channel. The channel is now protected.');
 		} else {
 			$this->addErrorMessage('The channel does not exist');
@@ -93,7 +95,8 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 		
 		$channel = $this->channelsDAO->getByName($channelName);
 		if ($channel !== null) {
-			$this->channelsDAO->updatePassword($channel->id, null);
+			$channel->setPassword(null);
+			$this->channelsDAO->save($channel);
 			$this->addMessage('The password has been removed. The channel is not protected now.');
 		} else {
 			$this->addErrorMessage('The channel does not exist');
@@ -154,7 +157,9 @@ class WiseChatChannelsTab extends WiseChatAbstractTab {
 				$channelId, $classes, $passwordInputId, wp_nonce_url($setPasswordURL), $setPasswordAction, wp_nonce_url($deletePasswordURL)
 			);
 		}
-		$html .= "</table><p class='description'>Notice: users' counter accuracy: 120 s.</p>";
+		$html .= "</table><p class='description'><strong>Notice:</strong> users' counter accuracy: 120 s.</p>";
+		$html .= "<p class='description'><strong>Notice:</strong> Backups CSV files are UTF-8 encoded and comma-separated</p>";
+
 		print($html);
 	}
 	

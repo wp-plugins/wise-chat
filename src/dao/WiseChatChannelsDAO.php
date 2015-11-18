@@ -3,8 +3,7 @@
 /**
  * Wise Chat channels DAO
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatChannelsDAO {
 	
@@ -14,75 +13,121 @@ class WiseChatChannelsDAO {
 	private $options;
 	
 	public function __construct() {
+		WiseChatContainer::load('model/WiseChatChannel');
 		$this->options = WiseChatOptions::getInstance();
 	}
-	
+
 	/**
-	* Returns channel by name.
-	*
-	* @param string $name
-	*
-	* @return object
-	*/
-	public function getByName($name) {
+	 * Creates or updates the channel and returns it.
+	 *
+	 * @param WiseChatChannel $channel
+	 *
+	 * @return WiseChatChannel
+	 * @throws Exception On validation error
+	 */
+	public function save($channel) {
 		global $wpdb;
-		
-		$name = addslashes($name);
+
+		// low-level validation:
+		if ($channel->getName() === null) {
+			throw new Exception('Name of the channel cannot equal null');
+		}
+
+		// prepare channel data:
 		$table = WiseChatInstaller::getChannelsTable();
-		$results = $wpdb->get_results(sprintf('SELECT * FROM %s WHERE name = "%s";', $table, $name));
-		
-		return is_array($results) && count($results) > 0 ? $results[0] : null;
+		$columns = array(
+			'name' => $channel->getName(),
+			'password' => $channel->getPassword()
+		);
+
+		// update or insert:
+		if ($channel->getId() !== null) {
+			$wpdb->update($table, $columns, array('id' => $channel->getId()), '%s', '%d');
+		} else {
+			$wpdb->insert($table, $columns);
+			$channel->setId($wpdb->insert_id);
+		}
+
+		return $channel;
 	}
-	
+
 	/**
-	* Returns all channels
-	*
-	* @return array
-	*/
+	 * Returns channel by ID.
+	 *
+	 * @param integer $id
+	 *
+	 * @return WiseChatChannel|null
+	 */
+	public function get($id) {
+		global $wpdb;
+
+		$table = WiseChatInstaller::getChannelsTable();
+		$sql = sprintf('SELECT * FROM %s WHERE id = %d;', $table, intval($id));
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			return $this->populateChannelData($results[0]);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns all channels sorted by name.
+	 *
+	 * @return WiseChatChannel[]
+	 */
 	public function getAll() {
 		global $wpdb;
-		
+
+		$channels = array();
 		$table = WiseChatInstaller::getChannelsTable();
-		return $wpdb->get_results(sprintf('SELECT * FROM %s ORDER BY name;', $table));
+		$sql = sprintf('SELECT * FROM %s ORDER BY name ASC;', $table);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results)) {
+			foreach ($results as $result) {
+				$channels[] = $this->populateChannelData($result);
+			}
+		}
+
+		return $channels;
 	}
-	
+
 	/**
-	* Creates a new channel.
-	*
-	* @param string $name
-	* @param string $password
-	*
-	* @return null
-	*/
-	public function create($name, $password = null) {
+	 * Returns channel by name.
+	 *
+	 * @param string $name
+	 *
+	 * @return WiseChatChannel|null
+	 */
+	public function getByName($name) {
 		global $wpdb;
-		
+
+		$name = addslashes($name);
 		$table = WiseChatInstaller::getChannelsTable();
-		$wpdb->insert($table,
-			array(
-				'name' => addslashes($name),
-				'password' => $password
-			)
-		);
+		$sql = sprintf('SELECT * FROM %s WHERE name = "%s";', $table, $name);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			return $this->populateChannelData($results[0]);
+		}
+
+		return null;
 	}
-	
+
 	/**
-	* Updates channel's password.
-	*
-	* @param integer $channelId
-	* @param string $password
-	*
-	* @return null
-	*/
-	public function updatePassword($channelId, $password) {
-		global $wpdb;
-	
-		$table = WiseChatInstaller::getChannelsTable();
-		$wpdb->update(
-			$table,
-			array('password' => $password), 
-			array('id' => $channelId),
-			'%s', '%d'
-		);
+	 * Converts raw object into WiseChatChannel object.
+	 *
+	 * @param stdClass $rawChannelData
+	 *
+	 * @return WiseChatChannel
+	 */
+	private function populateChannelData($rawChannelData) {
+		$channel = new WiseChatChannel();
+		if ($rawChannelData->id > 0) {
+			$channel->setId(intval($rawChannelData->id));
+		}
+		$channel->setName($rawChannelData->name);
+		$channel->setPassword($rawChannelData->password);
+
+		return $channel;
 	}
 }

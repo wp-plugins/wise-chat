@@ -34,7 +34,7 @@
 }
 
 .wcContainer input[type="text"], .wcContainer input[type="password"], .wcContainer textarea {
-	height: 30px; font-size: 13px; line-height: 20px;
+	height: 30px; font-size: 1em; line-height: 20px;
 	background-color: #fff;  border: 1px solid #e1e8ed; border-radius: 3px; margin: 0; outline: 0 none; padding: 4px;
 	color: #222;
 }
@@ -91,6 +91,10 @@
 	color: #dbdbdb; text-decoration: none; font-weight: bold;
 }
 
+.wcContainer .wcMessages .wcCurrentUserMessage .wcMessageUser, .wcContainer .wcMessages .wcCurrentUserMessage .wcMessageUser a {
+	color: #fafafa;
+}
+
 .wcContainer .wcMessages .wcMessage .wcMessageContent {
 	display: block; margin-top: 6px;
 }
@@ -135,4 +139,12 @@
 .wcContainer .wcError {
 	padding: 10px; color: #ffffff; background-color: rgb(247,66,67); border-radius: 5px; border: 1px solid rgb(207,46,47);
 	display: inline-block;
+}
+
+div.colorPicker-palette {
+	border: 1px solid #333 !important;
+}
+
+.wcEmoticonsLayer {
+	border: 1px solid #333;
 }

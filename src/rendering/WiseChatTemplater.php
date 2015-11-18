@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Wise Chat templater.
+ * Wise Chat simple template engine.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatTemplater {
 	const REGEXP_VARIABLE = '/\{\{\s*([\w\d]+)\s*\}\}/is';
@@ -31,7 +30,7 @@ class WiseChatTemplater {
 	*
 	* @param string $templateFile
 	*
-	* @return null
+	* @throws Exception If template file does not exist
 	*/
 	public function setTemplateFile($templateFile) {
 		$templateFilePath = $this->baseDir.'/'.$templateFile;
@@ -78,6 +77,7 @@ class WiseChatTemplater {
 	* @param array $data
 	*
 	* @return string
+    * @throws Exception If a variable referenced by given variable name is an array or an object
 	*/
 	private function renderVariables($template, $data) {
 		$matchedVariables = array();
@@ -117,12 +117,24 @@ class WiseChatTemplater {
 			$blockRegExp = sprintf(self::REGEXP_IF_BLOCK_TEMPLATE, $ifVariableOpen, $ifVariable);
 			preg_match_all($blockRegExp, $template, $matchedIfBlocks);
 			foreach ($matchedIfBlocks[0] as $key => $ifBlock) {
-				if (array_key_exists($ifVariable, $data) && $data[$ifVariable] === $positiveCondition) {
-					$template = str_replace($ifBlock, trim($matchedIfBlocks[1][$key]), $template);
-				} else {
-					$template = str_replace($ifBlock, '', $template);
-				}
-			}
+				$replacement = '';
+
+                if (array_key_exists($ifVariable, $data)) {
+                    $variableValue = $data[$ifVariable];
+
+                    if (
+                        (($variableValue === null) && !$positiveCondition) ||
+                        (is_bool($variableValue) && $variableValue === $positiveCondition) ||
+                        (is_string($variableValue) && (strlen($variableValue) > 0) === $positiveCondition) ||
+                        ((is_float($variableValue) || is_int($variableValue)) && ($variableValue > 0) === $positiveCondition) ||
+                        (is_array($variableValue) && (count($variableValue) > 0) === $positiveCondition)
+                    ) {
+                        $replacement = trim($matchedIfBlocks[1][$key]);
+                    }
+                }
+
+                $template = str_replace($ifBlock, $replacement, $template);
+            }
 		}
 	
 		return $template;
