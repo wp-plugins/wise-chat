@@ -1,12 +1,14 @@
 <?php
 
 /**
- * Wise Chat class for accessing plugin options.
+ * WiseChat class for accessing plugin options.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatOptions {
+	const OPTIONS_NAME = 'wise_chat_options_name';
+	const LAST_NAME_ID_OPTION = 'wise_chat_last_name_id';
+    const EMOTICONS_BASE_DIR = "gfx/emoticons";
 	
 	/**
 	* @var WiseChatOptions
@@ -29,7 +31,7 @@ class WiseChatOptions {
 	private $options;
 	
 	private function __construct() {
-		$this->options = get_option(WiseChatSettings::OPTIONS_NAME);
+		$this->options = get_option(WiseChatOptions::OPTIONS_NAME);
 	}
 	
 	public static function getInstance() {
@@ -51,6 +53,10 @@ class WiseChatOptions {
 	public function getPluginBaseDir() {
 		return $this->pluginBaseDir;
 	}
+
+    public function getEmoticonsBaseURL() {
+        return $this->getBaseDir().self::EMOTICONS_BASE_DIR.'/';
+    }
 	
 	/**
 	* Returns value of the boolean option.
@@ -61,7 +67,7 @@ class WiseChatOptions {
 	* @return boolean
 	*/
 	public function isOptionEnabled($property, $default = false) {
-		if (!array_key_exists($property, $this->options)) {
+		if (!is_array($this->options) || !array_key_exists($property, $this->options)) {
 			return $default;
 		} else if ($this->options[$property] == '1') {
 			return true;
@@ -79,7 +85,7 @@ class WiseChatOptions {
 	* @return string
 	*/
 	public function getOption($property, $default = '') {
-		return array_key_exists($property, $this->options) ? $this->options[$property] : $default;
+		return is_array($this->options) && array_key_exists($property, $this->options) ? $this->options[$property] : $default;
 	}
 	
 	/**
@@ -90,7 +96,7 @@ class WiseChatOptions {
 	* @return boolean
 	*/
 	public function isOptionNotEmpty($property) {
-		return array_key_exists($property, $this->options) && strlen($this->options[$property]) > 0;
+		return is_array($this->options) && array_key_exists($property, $this->options) && strlen($this->options[$property]) > 0;
 	}
 	
 	/**
@@ -109,12 +115,12 @@ class WiseChatOptions {
 	* Returns integer value of the given option.
 	*
 	* @param string $property Integer value
-	* @param string $default Default value if the property is not found
+	* @param integer $default Default value if the property is not found
 	*
 	* @return integer
 	*/
 	public function getIntegerOption($property, $default = 0) {
-		return intval(array_key_exists($property, $this->options) ? $this->options[$property] : $default);
+		return intval(is_array($this->options) && array_key_exists($property, $this->options) ? $this->options[$property] : $default);
 	}
 	
 	/**
@@ -125,7 +131,7 @@ class WiseChatOptions {
 	* @return null
 	*/
 	public function replaceOptions($options) {
-		$this->options = array_merge($this->options, $options);
+		$this->options = array_merge(is_array($this->options) ? $this->options : array(), $options);
 	}
 	
 	/**
@@ -146,7 +152,7 @@ class WiseChatOptions {
 	* @return null
 	*/
 	public function saveOptions() {
-		update_option(WiseChatSettings::OPTIONS_NAME, $this->options);
+		update_option(WiseChatOptions::OPTIONS_NAME, $this->options);
 	}
 	
 	/**
@@ -155,8 +161,37 @@ class WiseChatOptions {
 	* @return null
 	*/
 	public function dropAllOptions() {
-		delete_option(WiseChatSettings::OPTIONS_NAME);
-		delete_option(WiseChatUsersDAO::LAST_NAME_ID_OPTION);
+		delete_option(WiseChatOptions::OPTIONS_NAME);
+		delete_option(WiseChatOptions::LAST_NAME_ID_OPTION);
+	}
+
+	/**
+	 * Returns suffix of the anonymous username.
+	 *
+	 * @return integer
+	 */
+	public function getUserNameSuffix() {
+		return intval(get_option(self::LAST_NAME_ID_OPTION, 1));
+	}
+
+	/**
+	 * Sets suffix of the anonymous username.
+	 *
+	 * @param integer $suffix
+	 *
+	 * @return null
+	 */
+	public function setUserNameSuffix($suffix) {
+		update_option(self::LAST_NAME_ID_OPTION, $suffix);
+	}
+
+	/**
+	 * Resets username suffix.
+	 *
+	 * @return null
+	 */
+	public function resetUserNameSuffix() {
+		update_option(self::LAST_NAME_ID_OPTION, 0);
 	}
 	
 	/**

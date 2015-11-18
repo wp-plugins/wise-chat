@@ -2,8 +2,7 @@
  * Wise Chat messages history utility. 
  * It uses Local Storage to store and retrieve historical chat messages typed by the current user.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 function WiseChatMessagesHistory() {

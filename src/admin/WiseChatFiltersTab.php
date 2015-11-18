@@ -3,14 +3,16 @@
 /**
  * Wise Chat admin messages filters tab class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatFiltersTab extends WiseChatAbstractTab {
 	
 	public function getFields() {
 		return array(
-			array('filter_bad_words', 'Filter Bad Words', 'booleanFieldCallback', 'boolean', 'Uses a dictionary to filter bad words (supported languages: English, Polish)'),
+			array('_section', 'Bad Words Filter', 'Uses a dictionary to filter bad words (supported languages: English and Polish)'),
+			array('filter_bad_words', 'Enable Filter', 'booleanFieldCallback', 'boolean'),
+			array('bad_words_replacement_text', 'Replacement Text', 'stringFieldCallback', 'string', 'A text that is used to replace a bad word. Empty field means that asterisk is used.'),
+			array('_section', 'Custom Filters', 'Filters are rules that are applied to every message that is posted'),
 			array('filters', 'Filters', 'filterListCallback', 'void'),
 			array('filter_add', 'New Filter', 'filterAddCallback', 'void'),
 		);
@@ -21,6 +23,13 @@ class WiseChatFiltersTab extends WiseChatAbstractTab {
 			'filter_bad_words' => 1,
 			'filters' => null,
 			'filter_add' => null,
+			'bad_words_replacement_text' => ''
+		);
+	}
+	
+	public function getParentFields() {
+		return array(
+			'bad_words_replacement_text' => 'filter_bad_words'
 		);
 	}
 	

@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Wise Chat filters chain
+ * Wise Chat text filtering service.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatFilterChain {
 	/**
@@ -15,12 +14,17 @@ class WiseChatFilterChain {
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
 	}
-	
+
+    /**
+     * Method loads all user-defined filters and applies them to the given text.
+     *
+     * @param string $text A text to filter
+     * @return string
+     */
 	public function filter($text) {
-		$filtersDao = new WiseChatFiltersDAO();
-		$chain = $filtersDao->getAll();
+        $filtersChain = WiseChatContainer::get('dao/WiseChatFiltersDAO')->getAll();
 		
-		foreach ($chain as $filter) {
+		foreach ($filtersChain as $filter) {
 			$type = $filter['type'];
 			$replace = $filter['replace'];
 			$replaceWith = $filter['with'];

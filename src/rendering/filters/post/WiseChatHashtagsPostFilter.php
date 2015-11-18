@@ -3,11 +3,12 @@
 /**
  * Wise Chat hashtags post-filter.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatHashtagsPostFilter {
 	const REGEXP = "/(.)?#([^\s#]+)/i";
+    const TWITTER_URL_TEMPLATE = 'https://twitter.com/hashtag/%s?src=hash';
+
 	/**
 	* @var integer
 	*/
@@ -35,7 +36,7 @@ class WiseChatHashtagsPostFilter {
 					continue;
 				}
 			
-				$url = sprintf('https://twitter.com/hashtag/%s?src=hash', $detectedHashtag);
+				$url = sprintf(self::TWITTER_URL_TEMPLATE, urlencode($detectedHashtag));
 				$linkTag = sprintf('<a href="%s" target="_blank" rel="nofollow">%s</a>', $url, '#'.$detectedHashtag);
 				
 				$text = $this->strReplaceFirst('#'.$detectedHashtag, $linkTag, $text);
@@ -44,18 +45,36 @@ class WiseChatHashtagsPostFilter {
 		
 		return $text;
 	}
-	
+
+    /**
+     * Replaces first occurrence of the needle in haystack.
+     *
+     * @param string $needle
+     * @param string $replace
+     * @param string $haystack
+     *
+     * @return string
+     */
 	private function strReplaceFirst($needle, $replace, $haystack) {
 		$pos = strpos($haystack, $needle, $this->replacementOffset);
 		
 		if ($pos !== false) {
-			$this->replacementOffset = $pos + strlen($replace);
+            $this->replacementOffset = $pos + strlen($replace);
 			return substr_replace($haystack, $replace, $pos, strlen($needle));
 		}
 		
 		return $haystack;
 	}
-	
+
+    /**
+     * Removes HTML tags from the text.
+     *
+     * @param string $text
+     * @param string $tags
+     * @param bool|false $invert
+     *
+     * @return string
+     */
 	private function stripTagsContent($text, $tags = '', $invert = false) {
 		preg_match_all('/<(.+?)[\s]*\/?[\s]*>/si', trim($tags), $tags);
 		$tags = array_unique($tags[1]);
@@ -67,8 +86,7 @@ class WiseChatHashtagsPostFilter {
 			else {
 				return preg_replace('@<('. implode('|', $tags) .')\b.*?>.*?</\1>@si', '', $text);
 			}
-		}
-		else if($invert == false) {
+		} else if($invert == false) {
 			return preg_replace('@<(\w+)\b.*?>.*?</\1>@si', '', $text);
 		}
 		

@@ -1,286 +1,342 @@
 <?php
 
 /**
- * Wise Chat channels users DAO
+ * Wise Chat channel-user associations DAO
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatChannelUsersDAO {
-	
+
+	/**
+	 * @var WiseChatUsersDAO
+	 */
+	private $usersDAO;
+
+	/**
+	 * @var WiseChatChannelsDAO
+	 */
+	protected $channelsDAO;
+
 	/**
 	* @var WiseChatOptions
 	*/
 	private $options;
 	
 	public function __construct() {
+		WiseChatContainer::load('model/WiseChatChannelUser');
 		$this->options = WiseChatOptions::getInstance();
+		$this->usersDAO = WiseChatContainer::get('dao/user/WiseChatUsersDAO');
+		$this->channelsDAO = WiseChatContainer::get('dao/WiseChatChannelsDAO');
 	}
-	
+
 	/**
-	* Checks whether the given user name belongs to a different user (with different session ID) either active or inactive.
-	*
-	* @param string $user User name to check
-	* @param string $sessionId Current session ID
-	*
-	* @return boolean
-	*/
-	public function isUserNameOccupied($user, $sessionId) {
+	 * Creates or updates channel-to-user association and returns it.
+	 *
+	 * @param WiseChatChannelUser $channelUser
+	 *
+	 * @return WiseChatChannelUser
+	 * @throws Exception On validation error
+	 */
+	public function save($channelUser) {
 		global $wpdb;
-		
-		$user = addslashes($user);
-		$sessionId = addslashes($sessionId);
+
+		// low-level validation:
+		if ($channelUser->getChannelId() === null) {
+			throw new Exception('Channel ID is required');
+		}
+		if ($channelUser->getUserId() === null) {
+			throw new Exception('User ID is required');
+		}
+
+		// prepare channel-user data:
 		$table = WiseChatInstaller::getChannelUsersTable();
-		$results = $wpdb->get_results(
-			sprintf('SELECT * FROM %s WHERE user = "%s" AND session_id != "%s" LIMIT 1;', $table, $user, $sessionId)
+		$columns = array(
+			'user_id' => $channelUser->getUserId(),
+			'channel_id' => $channelUser->getChannelId(),
+			'active' => $channelUser->isActive() === true ? '1' : '0',
+			'last_activity_time' => $channelUser->getLastActivityTime()
 		);
-		
-		return is_array($results) && count($results) > 0 ? true : false;
+
+		// update or insert:
+		if ($channelUser->getId() !== null) {
+			$wpdb->update($table, $columns, array('id' => $channelUser->getId()), '%s', '%d');
+		} else {
+			$wpdb->insert($table, $columns);
+			$channelUser->setId($wpdb->insert_id);
+		}
+
+		return $channelUser;
 	}
-	
+
 	/**
-	* Returns channel-user association either active or inactive.
-	*
-	* @param string $user
-	* @param string $channel
-	*
-	* @return object
-	*/
-	public function getByUserAndChannel($user, $channel) {
+	 * Returns channel-user by ID.
+	 *
+	 * @param integer $userId
+	 * @param integer $channelId
+	 *
+	 * @return WiseChatChannelUser|null
+	 */
+	public function getByUserIdAndChannelId($userId, $channelId) {
 		global $wpdb;
-		
-		$user = addslashes($user);
-		$channel = addslashes($channel);
+
 		$table = WiseChatInstaller::getChannelUsersTable();
-		$results = $wpdb->get_results(
-			sprintf('SELECT * FROM %s WHERE user = "%s" AND channel = "%s" LIMIT 1;', $table, $user, $channel)
+		$sql = sprintf(
+			'SELECT * FROM %s WHERE user_id = %d AND channel_id = %d;', $table, intval($userId), intval($channelId)
 		);
-		
-		return is_array($results) && count($results) > 0 ? $results[0] : null;
-	}
-	
-	/**
-	* Returns active channel-user association either.
-	*
-	* @param string $user
-	* @param string $channel
-	*
-	* @return object
-	*/
-	public function getByActiveUserAndChannel($user, $channel) {
-		global $wpdb;
-		
-		$user = addslashes($user);
-		$channel = addslashes($channel);
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$results = $wpdb->get_results(
-			sprintf('SELECT * FROM %s WHERE active = 1 AND user = "%s" AND channel = "%s" LIMIT 1;', $table, $user, $channel)
-		);
-		
-		return is_array($results) && count($results) > 0 ? $results[0] : null;
-	}
-	
-	/**
-	* Returns channel-user associations for given session ID.
-	*
-	* @param string $sessionId
-	*
-	* @return array Array of objects
-	*/
-	public function getAllBySessionId($sessionId) {
-		global $wpdb;
-		
-		$sessionId = addslashes($sessionId);
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$results = $wpdb->get_results(
-			sprintf('SELECT * FROM %s WHERE session_id = "%s";', $table, $sessionId)
-		);
-		
-		return $results;
-	}
-	
-	/**
-	* Returns the amount of active channel-user associations for given session ID.
-	*
-	* @param string $sessionId
-	*
-	* @return integer
-	*/
-	public function getAmountOfActiveBySessionId($sessionId) {
-		global $wpdb;
-		
-		$sessionId = addslashes($sessionId);
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$sql = sprintf('SELECT count(*) AS quantity FROM %s WHERE active = 1 AND session_id = "%s";', $table, $sessionId);
-		
 		$results = $wpdb->get_results($sql);
 		if (is_array($results) && count($results) > 0) {
-			$result = $results[0];
-			return $result->quantity;
+			return $this->populateData($results[0]);
 		}
-		
-		return 0;
+
+		return null;
 	}
-	
+
 	/**
-	* Returns the amount of active users of the given channel.
-	*
-	* @param string $channel Channel
-	*
-	* @return integer
-	*/
-	public function getAmountOfUsersInChannel($channel) {
+	 * Returns active channel-user by ID.
+	 *
+	 * @param integer $userId
+	 * @param integer $channelId
+	 *
+	 * @return WiseChatChannelUser|null
+	 */
+	public function getActiveByUserIdAndChannelId($userId, $channelId) {
 		global $wpdb;
-		
+
 		$table = WiseChatInstaller::getChannelUsersTable();
-		$sql = sprintf('SELECT count(DISTINCT user) AS quantity FROM %s WHERE active = 1 AND channel = "%s";', $table, $channel);
+		$sql = sprintf(
+			'SELECT * FROM %s WHERE active = "1" AND user_id = %d AND channel_id = %d;', $table, intval($userId), intval($channelId)
+		);
 		$results = $wpdb->get_results($sql);
 		if (is_array($results) && count($results) > 0) {
-			$result = $results[0];
-			return $result->quantity;
+			return $this->populateData($results[0]);
 		}
-		
-		return 0;
+
+		return null;
 	}
-	
+
 	/**
-	* Returns active users of given channel.
-	*
-	* @param string $channel Channel
-	*
-	* @return array
-	*/
-	public function getUsersOfChannel($channel) {
+	 * Returns all active WiseChatChannelUser objects by channel name.
+	 *
+	 * @param integer $channelId
+	 *
+	 * @return WiseChatChannelUser[]
+	 */
+	public function getAllActiveByChannelId($channelId) {
 		global $wpdb;
-		
+
 		$table = WiseChatInstaller::getChannelUsersTable();
-		$sql = sprintf('SELECT DISTINCT user AS name FROM %s WHERE active = 1 AND channel = "%s" ORDER BY user ASC LIMIT 1000;', $table, $channel);
-				
-		return $wpdb->get_results($sql);
-	}
-	
-	/**
-	* Returns array of channels and amount of active users that use each channel.
-	*
-	* @return array Array of objects (fields: channel, users)
-	*/
-	public function getUsersOfChannels() {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$sql = sprintf('SELECT channel, count(DISTINCT user) as users FROM %s WHERE active = 1 GROUP BY channel ORDER BY channel ASC LIMIT 1000;', $table);
-				
-		return $wpdb->get_results($sql);
-	}
-	
-	/**
-	* Creates channel-user association.
-	*
-	* @param string $user
-	* @param string $channel
-	* @param string $sessionId
-	* @param string $ip
-	*
-	* @return null
-	*/
-	public function create($user, $channel, $sessionId, $ip) {
-		global $wpdb;
-		
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$wpdb->insert($table,
-			array(
-				'channel' => addslashes($channel),
-				'user' => addslashes($user),
-				'session_id' => addslashes($sessionId),
-				'ip' => addslashes($ip),
-				'active' => 1,
-				'last_activity_time' => time()
-			)
+		$usersTable = WiseChatInstaller::getUsersTable();
+		$sql = sprintf(
+			'SELECT cu.* FROM %s AS cu '.
+			'LEFT JOIN %s AS u ON (u.id = cu.user_id) '.
+			'WHERE cu.active = 1 AND cu.channel_id = "%d" '.
+			'ORDER BY u.name ASC '.
+			'LIMIT 1000;',
+			$table, $usersTable, intval($channelId)
 		);
+		$channelUsersRaw = $wpdb->get_results($sql);
+
+		/** @var WiseChatChannelUser[][] $channelUsersToComplete */
+		$channelUsersToComplete = array();
+		$channelUsers = array();
+		foreach ($channelUsersRaw as $channelUserRaw) {
+			$channelUser = $this->populateData($channelUserRaw);
+			$channelUsers[] = $channelUser;
+			$channelUsersToComplete[$channelUser->getUserId()][] = $channelUser;
+		}
+
+		// load related users:
+		$users = $this->usersDAO->getAll(array_keys($channelUsersToComplete));
+		foreach ($users as $user) {
+			if (array_key_exists($user->getId(), $channelUsersToComplete)) {
+				foreach ($channelUsersToComplete[$user->getId()] as $channelUser) {
+					$channelUser->setUser($user);
+				}
+			}
+		}
+
+		return $channelUsers;
 	}
-	
+
 	/**
-	* Updates channel-user association.
-	*
-	* @param string $user
-	* @param string $channel
-	* @param integer $lastActivityTime
-	* @param boolean $active
-	*
-	* @return null
-	*/
-	public function updateLastActivityTimeAndActive($user, $channel, $lastActivityTime, $active) {
-		global $wpdb;
-	
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$wpdb->update(
-			$table,
-			array(
-				'last_activity_time' => intval($lastActivityTime),
-				'active' => $active === true ? 1 : 0
-			), 
-			array(
-				'channel' => addslashes($channel),
-				'user' => addslashes($user)
-			),
-			'%d', '%s'
-		);
-	}
-	
-	/**
-	* Updates channel-user association.
-	*
-	* @param string $user
-	* @param string $newUser
-	*
-	* @return null
-	*/
-	public function updateUser($user, $newUser) {
-		global $wpdb;
-	
-		$table = WiseChatInstaller::getChannelUsersTable();
-		$wpdb->update(
-			$table,
-			array('user' => addslashes($newUser)), 
-			array('user' => addslashes($user)),
-			'%s', '%s'
-		);
-	}
-	
-	/**
-	* Updates active status of all associations older than given amount of seconds.
-	*
-	* @param boolean $active
-	* @param integer $time
-	*
-	* @return null
-	*/
+	 * Updates active status of all associations older than given amount of seconds.
+	 *
+	 * @param boolean $active
+	 * @param integer $time
+	 *
+	 * @return null
+	 */
 	public function updateActiveForOlderByLastActivityTime($active, $time) {
 		global $wpdb;
-		
+
 		$table = WiseChatInstaller::getChannelUsersTable();
 		$threshold = time() - $time;
-			
+
 		$wpdb->get_results(
 			sprintf("UPDATE %s SET active = %d WHERE last_activity_time < %d;", $table, $active === true ? 1 : 0, $threshold)
 		);
 	}
-	
+
 	/**
-	* Deletes all associations older than given amount of seconds.
-	*
-	* @param integer $time
-	*
-	* @return null
-	*/
+	 * Deletes all associations older than given amount of seconds.
+	 *
+	 * @param integer $time
+	 *
+	 * @return null
+	 */
 	public function deleteOlderByLastActivityTime($time) {
 		global $wpdb;
-		
+
 		$table = WiseChatInstaller::getChannelUsersTable();
 		$threshold = time() - $time;
-			
+
 		$wpdb->get_results(
 			sprintf("DELETE FROM %s WHERE last_activity_time < %s;", $table, $threshold)
 		);
 	}
+
+	/**
+	 * Converts stdClass object into WiseChatChannelUser object.
+	 *
+	 * @param stdClass $channelUserRaw
+	 *
+	 * @return WiseChatChannelUser
+	 */
+	private function populateData($channelUserRaw) {
+		$channelUser = new WiseChatChannelUser();
+		if ($channelUserRaw->id > 0) {
+			$channelUser->setId(intval($channelUserRaw->id));
+		}
+		if ($channelUserRaw->user_id > 0) {
+			$channelUser->setUserId(intval($channelUserRaw->user_id));
+		}
+		if ($channelUserRaw->channel_id > 0) {
+			$channelUser->setChannelId(intval($channelUserRaw->channel_id));
+		}
+		$channelUser->setActive($channelUserRaw->active == '1');
+		if ($channelUserRaw->last_activity_time > 0) {
+			$channelUser->setLastActivityTime(intval($channelUserRaw->last_activity_time));
+		}
+
+		return $channelUser;
+	}
+
+	/**
+	 * Returns the amount of active users of the given channel.
+	 *
+	 * @param integer $channelId ID of the Channel
+	 *
+	 * @return integer
+	 */
+	public function getAmountOfUsersInChannel($channelId) {
+		global $wpdb;
+
+		$table = WiseChatInstaller::getChannelUsersTable();
+		$sql = sprintf(
+			'SELECT count(DISTINCT user_id) AS quantity FROM %s WHERE active = 1 AND channel_id = "%d";',
+			$table, intval($channelId)
+		);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			$result = $results[0];
+			return $result->quantity;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Returns statistics of channels containing active users.
+	 *
+	 * @return WiseChatChannelStats[]
+	 */
+	public function getAllChannelsStats() {
+		global $wpdb;
+
+		WiseChatContainer::load('model/WiseChatChannelStats');
+
+		$table = WiseChatInstaller::getChannelUsersTable();
+		$sql = sprintf(
+			'SELECT channel_id, count(DISTINCT user_id) AS users '.
+			'FROM %s '.
+			'WHERE active = 1 '.
+			'GROUP BY channel_id '.
+			'ORDER BY channel_id ASC '.
+			'LIMIT 1000;', $table
+		);
+
+		$rawChannelStatsData = $wpdb->get_results($sql);
+		if (is_array($rawChannelStatsData)) {
+			$channelStatsArray = array();
+			foreach ($rawChannelStatsData as $rawChannelStats) {
+				$channelStats = new WiseChatChannelStats();
+				$channelStats->setChannelId($rawChannelStats->channel_id);
+				$channelStats->setNumberOfUsers($rawChannelStats->users);
+				$channelStats->setChannel($this->channelsDAO->get($rawChannelStats->channel_id));
+				$channelStatsArray[] = $channelStats;
+			}
+
+			return $channelStatsArray;
+		}
+
+		return array();
+	}
+
+	/**
+	 * Returns the amount of active channel-user associations for given session ID.
+	 *
+	 * @param string $sessionId
+	 *
+	 * @return integer
+	 */
+	public function getAmountOfActiveBySessionId($sessionId) {
+		global $wpdb;
+
+		$sessionId = addslashes($sessionId);
+		$table = WiseChatInstaller::getChannelUsersTable();
+		$usersTable = WiseChatInstaller::getUsersTable();
+		$sql = sprintf(
+			'SELECT count(usc.user_id) AS quantity '.
+			'FROM %s AS usc '.
+			'LEFT JOIN %s AS us ON (usc.user_id = us.id) '.
+			'WHERE usc.active = 1 AND us.session_id = "%s";',
+			$table, $usersTable, addslashes($sessionId)
+		);
+
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			$result = $results[0];
+			return $result->quantity;
+		}
+
+		return 0;
+	}
+
+	/**
+	* Checks whether the given user name belongs to a different user (with different session ID) either active or inactive.
+	*
+	* @param string $userName Username to check
+	* @param string $sessionId Session ID to check
+	*
+	* @return boolean
+	*/
+	public function isUserNameOccupied($userName, $sessionId) {
+		global $wpdb;
+
+		$userName = addslashes($userName);
+		$sessionId = addslashes($sessionId);
+		$table = WiseChatInstaller::getChannelUsersTable();
+		$usersTable = WiseChatInstaller::getUsersTable();
+		$sql = sprintf(
+			'SELECT * '.
+			'FROM %s AS usc '.
+			'LEFT JOIN %s AS us ON (usc.user_id = us.id) '.
+			'WHERE us.name = "%s" AND us.session_id != "%s" LIMIT 1;',
+			$table, $usersTable, $userName, $sessionId
+		);
+		$results = $wpdb->get_results($sql);
+		
+		return is_array($results) && count($results) > 0 ? true : false;
+	}
+	
 }

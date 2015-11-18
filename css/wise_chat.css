@@ -1,8 +1,7 @@
 /**
  * Wise Chat core CSS.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 
@@ -31,6 +30,10 @@
 	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 4px;
 }
 
+.wcMessage .wcVideoPlayer {
+	border-radius: none; box-shadow: none; border: none; display: inline-block; vertical-align: middle; margin-bottom: 4px;
+}
+
 .wcWidth300 .wcMessageContent {
 	display: block; border-bottom: 1px solid #f3f3f3; margin-bottom: 5px; padding-bottom: 5px;
 }
@@ -52,6 +55,7 @@
 .wcContainer .wcMessages {
 	width: 100%; height: 200px; overflow: auto; 
 	border: 1px solid #dfdfdf; background-color: #fff; margin: 5px 0px; padding: 0px 5px;
+	-webkit-overflow-scrolling: touch;
 }
 
 /* Users list: */
@@ -62,6 +66,7 @@
 .wcUsersListIncluded .wcUsersList {
 	float: right; width: 29%; height: 200px; 
 	border: 1px solid #dfdfdf; overflow: auto; 	background-color: #fff; margin: 5px 0px; padding: 0px 5px;
+	-webkit-overflow-scrolling: touch;
 }
 
 .wcContainer .wcUsersCounter {
@@ -85,7 +90,7 @@
 }
 
 .wcContainer input.wcInput, .wcContainer textarea.wcInput, .wcContainer progress.wcMainProgressBar {
-	width: 100%;
+	width: 100%; font-size: 1em;
 }
 
 /* Progress bar cross-browser styling */
@@ -154,7 +159,7 @@
 
 /* Tool buttons */
 .wcControlsButtonsIncluded a.wcToolButton {
-	float: right; margin-right: 5px; cursor: pointer !important; display: inline-block; width: 38px; height: 32px; border: 1px solid transparent; padding: 0px 3px;
+	float: right; margin-right: 3px; cursor: pointer !important; display: inline-block; width: 38px; height: 32px; border: 1px solid transparent; padding: 0px 3px;
 	position: relative; overflow: hidden;
 }
 
@@ -168,11 +173,15 @@
 
 /* Attachments */
 .wcControlsButtonsIncluded a.wcAddImageAttachment {
-	background:  url('../gfx/icons/camera.png') center center no-repeat;
+	background:  url('../gfx/icons/camera.png') center center no-repeat; width: 32px;
 }
 
 .wcControlsButtonsIncluded a.wcAddFileAttachment {
-	background:  url('../gfx/icons/attach.png') center center no-repeat; width: 26px;
+	background:  url('../gfx/icons/attach.png') center center no-repeat; width: 32px;
+}
+
+.wcControlsButtonsIncluded a.wcInsertEmoticonButton {
+    background:  url('../gfx/icons/emoticon.png') center center no-repeat; width: 32px;
 }
 
 .wcMessageAttachments {
@@ -226,4 +235,25 @@
 .wcContainer .wcChannelAuthorizationError {
 	margin: 10px 0px;
 	color: #ff0000;
+}
+
+.colorPicker-palette {
+	width: 216px !important; border: 1px solid #dfdfdf !important; border-radius: 0px !important;
+}
+
+.wcEmoticonsLayer {
+	width: 185px; height: auto; border: 1px solid #dfdfdf;
+	position: absolute; background-color: #EFEFEF; padding: 2px; z-index: 9999;
+}
+
+.wcEmoticonsLayer a {
+    display: inline-block; padding: 2px; border: 1px solid #EFEFEF;
+}
+
+.wcEmoticonsLayer a:hover {
+    border: 1px solid #dfdfdf;
+}
+
+.wcEmoticonsLayer a img {
+    border: none; border-radius: 0px; margin: 0px; padding: 0px;
 }

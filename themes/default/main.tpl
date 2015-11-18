@@ -3,15 +3,16 @@
 	{% if showMessageSubmitButton %} wcControlsButtonsIncluded {% endif showMessageSubmitButton %}
 	{% if enableImagesUploader %} wcControlsButtonsIncluded {% endif enableImagesUploader %}
 	{% if enableAttachmentsUploader %} wcControlsButtonsIncluded {% endif enableAttachmentsUploader %}
+    {% if showEmoticonInsertButton %} wcControlsButtonsIncluded {% endif showEmoticonInsertButton %}
 	{% if showUsersList %} wcUsersListIncluded {% endif showUsersList %}
 {% endvariable containerClasses %}
 
 <link rel='stylesheet' id='wise_chat_theme_{{ chatId }}-css' href='{{ themeStyles }}' type='text/css' media='all' />
 
 <div id='{{ chatId }}' class='{{ containerClasses }}'>
-	{% if showWindowTitle %}
+	{% if windowTitle %}
 		<div class='wcWindowTitle'>{{ windowTitle }}</div>
-	{% endif showWindowTitle %}
+	{% endif windowTitle %}
 	
 	{% if inputControlsBottomLocation %}
 		<div class='wcMessages'>{{ messages }}</div>
@@ -22,7 +23,7 @@
 		
 		{% if showUsersCounter %}
 			<div class='wcUsersCounter'>
-				{{ messageTotalUsers }}: <span>{{ totalUsers }}{% if enableChannelUsersLimit %}&nbsp;/&nbsp;{{ channelUsersLimit }} {% endif enableChannelUsersLimit %}</span>
+				{{ messageTotalUsers }}: <span>{{ totalUsers }}{% if channelUsersLimit %}&nbsp;/&nbsp;{{ channelUsersLimit }} {% endif channelUsersLimit %}</span>
 			</div>
 			<br class='wcClear' />
 		{% endif showUsersCounter %}
@@ -30,7 +31,7 @@
 	
 	<div class="wcControls">
 		{% if showUserName %}
-			<span class='wcCurrentUserName'>{{ currentUserName }}:</span>
+			<span class='wcCurrentUserName'>{{ currentUserName }}{% if isCurrentUserNameNotEmpty %}:{% endif isCurrentUserNameNotEmpty %}</span>
 		{% endif showUserName %}
 		
 		{% if showMessageSubmitButton %}
@@ -44,7 +45,11 @@
 		{% if enableImagesUploader %}
 			<a href="javascript://" class="wcToolButton wcAddImageAttachment" title="{{ messagePictureUploadHint }}"><input type="file" accept="image/*;capture=camera" class="wcImageUploadFile" title="{{ messagePictureUploadHint }}" /></a>
 		{% endif enableImagesUploader %}
-		
+
+        {% if showEmoticonInsertButton %}
+            <a href="javascript://" class="wcToolButton wcInsertEmoticonButton" title="{{ messageInsertEmoticon }}"></a>
+        {% endif showEmoticonInsertButton %}
+
 		<div class='wcInputContainer'>
 			{% if multilineSupport %}
 				<textarea class='wcInput' maxlength='{{ messageMaxLength }}' placeholder='{{ hintMessage }}'></textarea>
@@ -79,6 +84,12 @@
 							<label>{{ messageMuteSounds }} <input class='wcMuteSound' type='checkbox' value='1' {% if muteSounds %} checked="1" {% endif muteSounds %} /></label>
 						</div>
 					{% endif allowMuteSound %}
+					{% if allowChangeTextColor %}
+						<div class="wcCustomizationsProperty">
+							<label>{{ messageTextColor }}: <input class='wcTextColor' type='text' value="{{ textColor }}" /></label>
+							<input class='wcTextColorReset' type='button' value='{{ messageReset }}' />
+						</div>
+					{% endif allowChangeTextColor %}
 				</div>
 			</div>
 		{% endif showCustomizationsPanel %}
@@ -92,7 +103,7 @@
 		{% endif showUsersList %}
 		{% if showUsersCounter %}
 			<div class='wcUsersCounter'>
-				{{ messageTotalUsers }}: <span>{{ totalUsers }}{% if enableChannelUsersLimit %}&nbsp;/&nbsp;{{ channelUsersLimit }} {% endif enableChannelUsersLimit %}</span>
+				{{ messageTotalUsers }}: <span>{{ totalUsers }}{% if channelUsersLimit %}&nbsp;/&nbsp;{{ channelUsersLimit }} {% endif channelUsersLimit %}</span>
 			</div>
 			<br class='wcClear' />
 		{% endif showUsersCounter %}

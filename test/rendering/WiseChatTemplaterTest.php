@@ -1,6 +1,6 @@
 <?php
 
-require_once('src/rendering/WiseChatTemplater.php');
+WiseChatContainer::load('rendering/WiseChatTemplater');
 
 class WiseChatTemplaterTest extends PHPUnit_Framework_TestCase {
 	
@@ -24,6 +24,23 @@ class WiseChatTemplaterTest extends PHPUnit_Framework_TestCase {
 			array("{{ x }} a {{ y }} b {{ x }}", array('x' => 't1', 'y' => 't2'), "t1 a t2 b t1"),
 			
 			array("{% if x %} c1 {% endif x %}", array('x' => true), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => '1'), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => ''), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => '1'), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => ''), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => 12), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => 0), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => 12), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => 0), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => 12.43), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => 0.0), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => 12.53), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => 0.0), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => array(1, 2)), "c1"),
+            array("{% if x %} c1 {% endif x %}", array('x' => array()), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => array(1, 2)), ""),
+            array("{% if !x %} c1 {% endif x %}", array('x' => array()), "c1"),
+            array("{% if !x %} c1 {% endif x %}", array('x' => null), "c1"),
 			array("{%if    x%}c1{%endif x%}", array('x' => true), "c1"),
 			array("{% if x %} c1 {% endif x %}", array('x' => false), ""),
 			array("{% if x %} c1 {% endif x %} a {% if x %} c2 {% endif x %}", array('x' => true), "c1 a c2"),

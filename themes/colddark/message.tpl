@@ -2,19 +2,22 @@
 	wcMessage {% if isAuthorWpUser %} wcWpMessage {% endif isAuthorWpUser %} {% if isAuthorCurrentUser %} wcCurrentUserMessage {% endif isAuthorCurrentUser %}
 {% endvariable messageClasses %}
 
-<div class="{{ messageClasses }}" data-id="{{ messageId }}">
-	<span class="wcMessageUser">
+<div class="{{ messageClasses }}" data-id="{{ messageId }}" data-chat-user-id="{{ messageChatUserId }}">
+	<span class="wcMessageUser" {% if isTextColorSet %}style="color:{{ textColor }}"{% endif isTextColorSet %}>
 		{{ renderedUserName }}
 	</span>
-	<span class="wcMessageTime" data-utc="{{ messageTimeUTC }}"></span>
+	<span class="wcMessageTime" data-utc="{{ messageTimeUTC }}" {% if isTextColorSet %}style="color:{{ textColor }}"{% endif isTextColorSet %}></span>
 	
 	<br class='wcClear' />
-	<span class="wcMessageContent">
+	<span class="wcMessageContent" {% if isTextColorSet %}style="color:{{ textColor }}"{% endif isTextColorSet %}>
 		{{ messageContent }}
 		
-		{% if showAdminActions %}
+		{% if showDeleteButton %}
 			<a href="javascript://" class="wcAdminAction wcMessageDeleteButton" data-id="{{ messageId }}" title="Delete the message"><img src='{{ baseDir }}/gfx/icons/x.png' class='wcIcon' /></a>
-			<br class='wcClear' />
-		{% endif showAdminActions %}
+		{% endif showDeleteButton %}
+		{% if showBanButton %}
+			<a href="javascript://" class="wcAdminAction wcUserBanButton" data-id="{{ messageId }}" title="Ban this user"><img src='{{ baseDir }}/gfx/icons/block.png' class='wcIcon' /></a>
+		{% endif showBanButton %}
+		<br class='wcClear' />
 	</span>
 </div>

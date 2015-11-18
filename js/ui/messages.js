@@ -1,49 +1,49 @@
 /**
  * Wise Chat messages sending and displaying. 
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
-function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier) {
+function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier, progressBar) {
 	var MESSAGES_REFRESH_TIMEOUT = options.messagesRefreshTime;
 	var MESSAGES_ORDER = options.messagesOrder;
 	
 	var lastId = options.lastId;
 	var idsCache = {};
-	var channel = options.channel;
+	var channelId = options.channelId;
 	var refresherInitialized = false;
-	
+
 	var messagesEndpoint = options.apiEndpointBase + '?action=wise_chat_messages_endpoint';
 	var messageEndpoint = options.apiEndpointBase + '?action=wise_chat_message_endpoint';
 	var messageDeleteEndpoint = options.apiEndpointBase + '?action=wise_chat_delete_message_endpoint';
-	
+	var userBanEndpoint = options.apiEndpointBase + '?action=wise_chat_user_ban_endpoint';
+
 	var container = jQuery('#' + options.chatId);
 	var messagesContainer = container.find('.wcMessages');
 	var usersListContainer = container.find('.wcUsersList');
 	var usersCounter = container.find('.wcUsersCounter span');
 	var messagesInput = container.find('.wcInput');
 	var currentUserName = container.find('.wcCurrentUserName');
-	var progressBar = container.find('.wcMainProgressBar');
 	var isMessageMultiline = messagesInput.is("textarea");
 	var submitButton = container.find('.wcSubmitButton');
 	var currentRequest = null;
-	
+	var lastErrorMessageText = null;
+
 	function isAscendingOrder() {
 		return MESSAGES_ORDER == 'ascending';
 	}
-	
+
 	/**
 	* Moves the scrollbar to the top (descending order mode) or to the bottom (ascending order mode).
 	*/
 	function scrollMessages() {
 		var scrollPosition = isAscendingOrder() ? messagesContainer[0].scrollHeight : 0;
-		
+
 		setTimeout(function() { setMessagesScollPosition(scrollPosition); }, 200);
 	};
-	
+
 	/**
 	* Checks whether the scrollbar is set to the top (descending order mode) or to the bottom (ascending order mode).
-	* 
+	*
 	* @return {Boolean}
 	*/
 	function isFullyScrolled() {
@@ -53,15 +53,15 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			return messagesContainer.scrollTop() == 0;
 		}
 	};
-	
+
 	function setMessagesScollPosition(scrollPosition) {
 		messagesContainer.scrollTop(scrollPosition);
 	}
-	
+
 	/**
 	 * Corrects position of the scrollbar when new messages are appended or prepended.
 	 * It prevents from slight movement of the scrollbar.
-	 * 
+	 *
 	 * @param {Integer} previousMessagesScrollPosition Previous position of the scrollbar
 	 * @param {Integer} previousMessagesScrollHeight Previous height of the scroll area
 	 */
@@ -70,7 +70,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 		var scrollDifference = isAscendingOrder() ? 0 : messagesNewScrollHeight - previousMessagesScrollHeight;
 		setMessagesScollPosition(previousMessagesScrollPosition + scrollDifference);
 	}
-	
+
 	function showMessage(message) {
 		var parsedMessage = jQuery(message);
 		if (isAscendingOrder()) {
@@ -80,31 +80,48 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 		}
 		notifier.sendNotifications();
 	};
-	
+
 	function hideMessage(messageId) {
 		container.find('div[data-id="' + messageId + '"]').remove();
 	}
-	
+
 	function hideAllMessages() {
 		container.find('div.wcMessage').remove();
 	}
-	
+
 	function replaceUserNameInMessages(renderedUserName, messagesIds) {
 		for (var t = 0; t < messagesIds.length; t++) {
 			container.find('div[data-id="' + messagesIds[t] + '"] .wcMessageUser').html(renderedUserName);
 		}
 	}
-	
+
+	function refreshPlainUserName(name) {
+		currentUserName.html(name + ':');
+	}
+
+    /**
+     * Appends the given text to the end of the text in message input field.
+     *
+     * @param {string} text
+     */
+    function appendTextToInputField(text) {
+        messagesInput.val(messagesInput.val() + text);
+        messagesInput.focus();
+    }
+
 	function showErrorMessage(message) {
-		message = '<div class="wcMessage wcErrorMessage">' + message + '</div>';
-		if (isAscendingOrder()) {
-			messagesContainer.append(message);
-		} else {
-			messagesContainer.prepend(message);
+		if (lastErrorMessageText != message) {
+			lastErrorMessageText = message;
+			message = '<div class="wcMessage wcErrorMessage">' + message + '</div>';
+			if (isAscendingOrder()) {
+				messagesContainer.append(message);
+			} else {
+				messagesContainer.prepend(message);
+			}
+			scrollMessages();
 		}
-		scrollMessages();
 	};
-	
+
 	function setBusyState(showProgress) {
 		submitButton.attr('disabled', '1');
 		submitButton.attr('readonly', '1');
@@ -112,10 +129,10 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 		messagesInput.attr('readonly', '1');
 		if (showProgress == true) {
 			progressBar.show();
-			progressBar.attr("value", "0");
+			progressBar.setValue(0);
 		}
 	};
-	
+
 	function setIdleState() {
 		submitButton.attr('disabled', null);
 		submitButton.attr('readonly', null);
@@ -123,7 +140,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 		messagesInput.attr('readonly', null);
 		progressBar.hide();
 	};
-	
+
 	function initializeRefresher() {
 		if (refresherInitialized == true) {
 			return;
@@ -131,23 +148,25 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 		refresherInitialized = true;
 		setInterval(checkNewMessages, MESSAGES_REFRESH_TIMEOUT);
 	};
-	
+
 	function checkNewMessages() {
 		if (currentRequest !== null && currentRequest.readyState > 0 && currentRequest.readyState < 4) {
 			return;
 		}
-		
+
 		currentRequest = jQuery.ajax({
 			type: "GET",
 			url: messagesEndpoint,
 			data: {
-				channel: channel,
+                channelId: channelId,
 				lastId: lastId,
 				checksum: options.checksum
 			}
-		}).success(onNewMessagesArrived);
+		})
+		.success(onNewMessagesArrived)
+		.error(onMessageArrivalError);
 	};
-	
+
 	function onNewMessagesArrived(result) {
 		try {
 			var response = jQuery.parseJSON(result);
@@ -155,11 +174,11 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 				var wasFullyScrolled = isFullyScrolled();
 				var messagesScrollPosition = messagesContainer.scrollTop();
 				var messagesScrollHeight = messagesContainer[0].scrollHeight;
-				
+
 				if (!isAscendingOrder()) {
 					response.result.reverse();
 				}
-				
+
 				for (var x = 0; x < response.result.length; x++) {
 					var msg = response.result[x];
 					var messageId = parseInt(msg['id']);
@@ -171,26 +190,35 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 						idsCache[messageId] = true;
 					}
 				}
-				
+
 				if (wasFullyScrolled) {
 					scrollMessages();
 				} else {
 					correctMessagesScrollPosition(messagesScrollPosition, messagesScrollHeight);
 				}
 			}
-			
+
 			dateAndTimeRenderer.convertUTCMessagesTime(container, response.nowTime);
-			
-			if (response.error) {
-				showErrorMessage(response.error);
-			}
+
 			initializeRefresher();
 		}
 		catch (e) {
 			showErrorMessage('Server error: ' + e.toString());
 		}
 	};
-	
+
+	function onMessageArrivalError(jqXHR, textStatus, errorThrown) {
+		try {
+			var response = jQuery.parseJSON(jqXHR.responseText);
+			if (response.error) {
+				showErrorMessage(response.error);
+			}
+		}
+		catch (e) {
+			showErrorMessage('Server error occurred: ' + errorThrown);
+		}
+	};
+
 	function onMessageSent(result) {
 		setIdleState();
 		try {
@@ -205,15 +233,30 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			showErrorMessage('Unknown error occurred: ' + e.toString());
 		}
 	};
-	
-	function sendMessageRequest(message, channel, attachments) {
+
+	function onMessageSentError(jqXHR, textStatus, errorThrown) {
+		setIdleState();
+		try {
+			var response = jQuery.parseJSON(jqXHR.responseText);
+			if (response.error) {
+				showErrorMessage(response.error);
+			} else {
+				showErrorMessage('Unknown server error occurred: ' + errorThrown);
+			}
+		}
+		catch (e) {
+			showErrorMessage('Server error occurred: ' + errorThrown);
+		}
+	};
+
+	function sendMessageRequest(message, channelId, attachments) {
 		setBusyState(attachments.length > 0);
 		jQuery.ajax({
 			type: "POST",
 			url: messageEndpoint,
 			data: {
 				attachments: attachments,
-				channel: channel,
+                channelId: channelId,
 				message: message,
 				checksum: options.checksum
 			},
@@ -223,28 +266,24 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 					if (percent > 100) {
 						percent = 100;
 					}
-					progressBar.attr('value', percent);
+					progressBar.setValue(percent);
 				}
 			}
 		})
 		.success(onMessageSent)
-		.error(function(jqXHR, textStatus, errorThrown) {
-			setIdleState();
-			showErrorMessage('Server error occurred: ' + errorThrown);
-		});
+		.error(onMessageSentError);
 	};
-	
+
 	function sendMessage() {
 		var message = messagesInput.val().replace(/^\s+|\s+$/g, '');
 		var attachments = messageAttachments.getAttachments();
 		messageAttachments.clearAttachments();
-		
+
 		if (message.length > 0 || attachments.length > 0) {
-			sendMessageRequest(message, channel, attachments);
-			
+			sendMessageRequest(message, channelId, attachments);
+
 			messagesInput.val('');
-			messagesInput.focus();
-			
+
 			if (!isMessageMultiline && message.length > 0) {
 				messagesHistory.resetPointer();
 				if (messagesHistory.getPreviousMessage() != message) {
@@ -254,18 +293,22 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			}
 		}
 	};
-	
+
 	function onInputKeyPress(e) {
 		if (!isMessageMultiline && e.which == 13) {
 			sendMessage();
 		}
+
+		if (isMessageMultiline && e.which == 13 && e.shiftKey) {
+			sendMessage();
+		}
 	};
-	
+
 	function onInputKeyDown(e) {
 		if (!isMessageMultiline) {
 			var keyCode = e.which;
 			var messageCandidate = null;
-			
+
 			if (keyCode == 38) {
 				messageCandidate = messagesHistory.getPreviousMessage();
 			} else if (keyCode == 40) {
@@ -276,11 +319,11 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			}
 		}
 	};
-	
+
 	function refreshUsersList(data) {
 		usersListContainer.html(data);
 	}
-	
+
 	function refreshUsersCounter(data) {
 		var total = data.total > 0 ? data.total : 1;
 		if (options.channelUsersLimit > 0) {
@@ -289,7 +332,16 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			usersCounter.html(total);
 		}
 	}
-	
+
+	function setMessagesProperty(data) {
+		container.find('div[data-chat-user-id="' + data.chatUserId + '"]').each(function(index, element) {
+			if (data.propertyName == 'textColor') {
+				var cssSelector = '.wcMessageUser, .wcMessageUser a, .wcMessageContent, .wcMessageTime';
+				jQuery(element).find(cssSelector).css({color: data.propertyValue});
+			}
+		});
+	}
+
 	function onWindowResize() {
 		if (container.width() < 300) {
 			container.addClass('wcWidth300');
@@ -297,19 +349,19 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			container.removeClass('wcWidth300');
 		}
 	}
-	
+
 	function onMessageDelete() {
 		if (!confirm('Are you sure you want to delete this message?')) {
 			return;
 		}
-		
+
 		var deleteButton = jQuery(this);
 		var messageId = deleteButton.data('id');
 		jQuery.ajax({
 			type: "POST",
 			url: messageDeleteEndpoint,
 			data: {
-				channel: channel,
+                channelId: channelId,
 				messageId: messageId,
 				checksum: options.checksum
 			}
@@ -318,35 +370,45 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 			hideMessage(messageId);
 		})
 		.error(function(jqXHR, textStatus, errorThrown) {
+			showErrorMessage('Server error: ' + errorThrown);
+		});
+	}
+
+	function onUserBan() {
+		if (!confirm('Are you sure you want to ban this user?')) {
+			return;
+		}
+
+		var messageId = jQuery(this).data('id');
+		jQuery.ajax({
+			type: "POST",
+			url: userBanEndpoint,
+			data: {
+                channelId: channelId,
+				messageId: messageId,
+				checksum: options.checksum
+			}
+		})
+		.success(function(result) {
+			try {
+				var response = jQuery.parseJSON(result);
+				if (response.error) {
+					showErrorMessage(response.error);
+				}
+			}
+			catch (e) {
+				showErrorMessage('Server error: ' + e.toString());
+			}
+		})
+		.error(function(jqXHR, textStatus, errorThrown) {
 			showErrorMessage('Server error occurred: ' + errorThrown);
 		});
 	}
 	
 	function attachEventListeners() {
 		container.on('click', 'a.wcMessageDeleteButton', onMessageDelete);
+		container.on('click', 'a.wcUserBanButton', onUserBan);
 	}
-	
-	(function addXhrProgressEvent(jQuery) {
-		var originalXhr = jQuery.ajaxSettings.xhr;
-		jQuery.ajaxSetup({
-			xhr: function() {
-				var req = originalXhr.call(jQuery.ajaxSettings), that = this;
-				if (req) {
-					if (typeof req.addEventListener == "function" && that.progress !== undefined) {
-						req.addEventListener("progress", function(evt) {
-							that.progress(evt);
-						}, false);
-					}
-					if (typeof req.upload == "object" && that.progressUpload !== undefined) {
-						req.upload.addEventListener("progress", function(evt) {
-							that.progressUpload(evt);
-						}, false);
-					}
-				}
-				return req;
-			}
-		});
-	})(jQuery);
 	
 	// DOM events:
 	messagesInput.keypress(onInputKeyPress);
@@ -357,10 +419,10 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 	// public API:
 	this.start = function() {
 		initializeRefresher();
-		scrollMessages();
 		dateAndTimeRenderer.convertUTCMessagesTime(container, options.nowTime);
 		onWindowResize();
 		attachEventListeners();
+		scrollMessages();
 	};
 	
 	this.scrollMessages = scrollMessages;
@@ -370,4 +432,7 @@ function WiseChatMessages(options, messagesHistory, messageAttachments, dateAndT
 	this.refreshUsersList = refreshUsersList;
 	this.refreshUsersCounter = refreshUsersCounter;
 	this.replaceUserNameInMessages = replaceUserNameInMessages;
+	this.refreshPlainUserName = refreshPlainUserName;
+	this.setMessagesProperty = setMessagesProperty;
+    this.appendTextToInputField = appendTextToInputField;
 };

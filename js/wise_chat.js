@@ -1,20 +1,21 @@
 /**
  * Wise Chat core controller.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 function WiseChatController(options) {
+	var progressBar = new WiseChatProgressBar(options);
 	var notifier = new WiseChatNotifier(options);
 	var messagesHistory = new WiseChatMessagesHistory();
 	var imageViewer = new WiseChatImageViewer();
 	var dateFormatter = new WiseChatDateFormatter();
-	var messageAttachments = new WiseChatMessageAttachments(options, imageViewer);
+	var messageAttachments = new WiseChatMessageAttachments(options, imageViewer, progressBar);
 	var dateAndTimeRenderer = new WiseChatDateAndTimeRenderer(options, dateFormatter);
-	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier);
+	var messages = new WiseChatMessages(options, messagesHistory, messageAttachments, dateAndTimeRenderer, notifier, progressBar);
 	var settings = new WiseChatSettings(options, messages);
 	var maintenanceExecutor = new WiseChatMaintenanceExecutor(options, messages);
+    var emoticonsPanel = new WiseChatEmoticonsPanel(options, messages);
 	
 	messages.start();
 	maintenanceExecutor.start();
@@ -23,8 +24,7 @@ function WiseChatController(options) {
 /**
  * WiseChatDateFormatter class. Formats dates given in UTC timezone.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 function WiseChatDateFormatter() {
 	
@@ -124,15 +124,13 @@ function WiseChatDateFormatter() {
 };
 
 /**
- * WiseChatMessageAttachments class. Manages attachments preparation. 
+ * WiseChatMessageAttachments class. Attachments management.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
-function WiseChatMessageAttachments(options, imageViewer) {
-	var IMAGE_MAX_WIDTH = 1000;
-	var IMAGE_MAX_HEIGHT = 1000;
-	var IMAGE_TYPES = ['jpg', 'jpeg', 'tiff', 'png', 'bmp', 'gif'];
+function WiseChatMessageAttachments(options, imageViewer, progressBar) {
+	var IMAGE_TYPES = ['jpg', 'jpeg', 'png', 'gif'];
+	var prepareImageEndpoint = options.apiEndpointBase + '?action=wise_chat_prepare_image_endpoint';
 	var container = jQuery('#' + options.chatId);
 	var messageAttachmentsPanel = container.find('.wcMessageAttachments');
 	var imageUploadPreviewImage = container.find('.wcImageUploadPreview');
@@ -142,12 +140,9 @@ function WiseChatMessageAttachments(options, imageViewer) {
 	var fileUploadNamePreview = container.find('.wcFileUploadNamePreview');
 	var attachments = [];
 	
-	var canvas = container.find('.wcCanvasTemp');
-	if (canvas.length === 0) {
-		container.append('<canvas class="wcCanvasTemp" style="display:none;"> </canvas>');
-		canvas = container.find('.wcCanvasTemp');
+	function showErrorMessage(message) {
+		alert(message);
 	}
-	canvas = canvas[0];
 	
 	function addAttachment(type, data, name) {
 		attachments.push({ type: type, data: data, name: name });
@@ -162,69 +157,82 @@ function WiseChatMessageAttachments(options, imageViewer) {
 	function onImageUploadFileChange() {
 		var fileInput = imageUploadFile[0];
 		if (typeof FileReader === 'undefined' || fileInput.files.length === 0) {
+			showErrorMessage('Unsupported operation');
 			return;
 		}
 		
-		var fileReader = new FileReader();
 		var fileDetails = fileInput.files[0];
-		if (fileDetails.size > options.attachmentsSizeLimit) {
-			alert(options.messages.messageSizeLimitError);
+		if (fileDetails.size && fileDetails.size > options.imagesSizeLimit) {
+			showErrorMessage(options.messages.messageSizeLimitError);
 			return;
 		}
 		
-		var extension = getExtension(fileDetails);
-		if (IMAGE_TYPES.indexOf(extension) > -1) {
-			if (extension === 'jpg') {
-				extension = 'jpeg';
-			}
-			var mimeType = 'image/' + extension;
+		if (IMAGE_TYPES.indexOf(getExtension(fileDetails)) > -1) {
+			var fileReader = new FileReader();
 			fileReader.onload = function(event) {
 				clearAttachments();
-				resizeImageAndAddToAttachments(event.target.result, mimeType);
+				prepareImage(event.target.result, function(preparedImageData) {
+					addAttachment('image', preparedImageData);
+			
+					imageUploadPreviewImage.show();
+					imageUploadPreviewImage.attr('src', preparedImageData);
+					messageAttachmentsPanel.show();
+					imageUploadFile.val('');
+				});
 			};
 			fileReader.readAsDataURL(fileDetails);
 		} else {
-			alert(options.messages.messageUnsupportedTypeOfFile);
+			showErrorMessage(options.messages.messageUnsupportedTypeOfFile);
 		}
 	}
 	
-	function resizeImageAndAddToAttachments(imageSource, mimeType) {
-		var tempImage = document.createElement("img");
-		tempImage.onload = function () {
-			var context = canvas.getContext("2d");
-			context.drawImage(tempImage, 0, 0);
-			
-			var width = tempImage.width;
-			var height = tempImage.height;
-			if (width > height) {
-				if (width > IMAGE_MAX_WIDTH) {
-					height *= IMAGE_MAX_WIDTH / width;
-					width = IMAGE_MAX_WIDTH;
-				}
-			} else {
-				if (height > IMAGE_MAX_HEIGHT) {
-					width *= IMAGE_MAX_HEIGHT / height;
-					height = IMAGE_MAX_HEIGHT;
+	function prepareImage(imageSource, successCallback) {
+		var that = this;
+		
+		progressBar.setValue(0);
+		progressBar.show();
+
+		jQuery.ajax({
+			type: "POST",
+			url: prepareImageEndpoint,
+			data: {
+				data: imageSource,
+				checksum: options.checksum
+			},
+			progressUpload: function(event) {
+				if (event.lengthComputable) {
+					var percent = parseInt(event.loaded / event.total * 100);
+					if (percent > 100) {
+						percent = 100;
+					}
+					progressBar.setValue(percent);
 				}
 			}
-			canvas.width = width;
-			canvas.height = height;
-			context.drawImage(tempImage, 0, 0, width, height);
-			
-			imageSource = canvas.toDataURL(mimeType);
-			addAttachment('image', imageSource);
-			imageUploadPreviewImage.show();
-			imageUploadPreviewImage.attr('src', imageSource);
-			messageAttachmentsPanel.show();
-			imageUploadFile.val('');
-		}
-		
-		tempImage.src = imageSource;
+		})
+		.success(function(result) {
+			progressBar.hide();
+			successCallback.apply(that, [result]);
+		})
+		.error(function(jqXHR, textStatus, errorThrown) {
+			progressBar.hide();
+			try {
+				var response = jQuery.parseJSON(jqXHR.responseText);
+				if (typeof response.error != 'undefined') {
+					showErrorMessage(response.error);
+				} else {
+					showErrorMessage('Image preparation error');
+				}
+			}
+			catch (e) {
+				showErrorMessage('Unknown error occurred');
+			}
+		});
 	}
 	
 	function onFileUploadFileChange() {
 		var fileInput = fileUploadFile[0];
 		if (typeof FileReader === 'undefined' || fileInput.files.length === 0) {
+			showErrorMessage('Unsupported operation');
 			return;
 		}
 		
@@ -234,7 +242,7 @@ function WiseChatMessageAttachments(options, imageViewer) {
 			var fileName = fileDetails.name;
 			
 			if (fileDetails.size > options.attachmentsSizeLimit) {
-				alert(options.messages.messageSizeLimitError);
+				showErrorMessage(options.messages.messageSizeLimitError);
 			} else {
 				fileReader.onload = function(event) {
 					clearAttachments();
@@ -246,7 +254,7 @@ function WiseChatMessageAttachments(options, imageViewer) {
 				fileReader.readAsDataURL(fileDetails);
 			}
 		} else {
-			alert(options.messages.messageUnsupportedTypeOfFile);
+			showErrorMessage(options.messages.messageUnsupportedTypeOfFile);
 		}
 	}
 	
@@ -302,8 +310,7 @@ function WiseChatMessageAttachments(options, imageViewer) {
 /**
  * WiseChatImageViewer
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 function WiseChatImageViewer() {
 	var HOURGLASS_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3wQEDB4ktAYXpwAAAb5JREFUSMe1lr9qFFEUh78rg8gWW1ikSLEWgkVq2SoYsbBIk1dYEAsxaJt3sLAIFkEEX0FSRlgMhKAPkEIQwZDChATSBLMQP5uz4bKZmZ3ZxR+cYs75nT9z7rlnJpFBfQC8B24xG/4Cz1NK38eKYoKwADxiPiwA1wnSpFUdAO+A+y0D/wBeppQ+5sqihHgAdIBRSumsSWT1bvgcNCF31Et1tWnp6mr4dCZtNw4zpXQB7AJrLdqzBuyGb6OKBuq52m3A7QZ3UGZPVW0CfgJvgc/As4r4H4CnwGvgXkrpDy36uh6VPVRPvYnTsJ2r662HWS3U/ZDH6kkW/CR0Y3sx041Re+qh+kXtq59C+qE7VHt1MWpXQkrpF7ACdIFhZhqGbiU4syX474gWHUU7FjP9YuiOprVo2iF/jUO8U3Hj94NTzJLgVYxgL0v4JqTI3rD9mEZ1v9WN7Hk7G9Pt8d5RN4LbaZPgelWE7JVctL3MXrkqqhLsqFvqbXVoNYbB2VJ32rTnMlbwptOxWbeuyxL0w/GJetUgwVVwVfuT8crGawm4AEbAi4ZdHYXPEvCtrvpl58dy3Rscx9dsnt+W41zxD60+eUN8VNiNAAAAAElFTkSuQmCC";
@@ -396,8 +403,7 @@ function WiseChatImageViewer() {
 /**
  * WiseChatNotifier - window title and sound notifiers.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 function WiseChatNotifier(options) {
 	var isWindowFocused = true;
@@ -493,8 +499,7 @@ function WiseChatNotifier(options) {
 /**
  * WiseChatDateAndTimeRenderer - renders date and time next to each message according to the settings.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 function WiseChatDateAndTimeRenderer(options, dateFormatter) {
 	
@@ -566,4 +571,139 @@ function WiseChatDateAndTimeRenderer(options, dateFormatter) {
 	
 	// public API:
 	this.convertUTCMessagesTime = convertUTCMessagesTime;
+}
+
+/**
+ * WiseChatProgressBar - controls the main progress bar.
+ */
+function WiseChatProgressBar(options) {
+	var container = jQuery('#' + options.chatId);
+	var progressBar = container.find('.wcMainProgressBar');
+	
+	// provide access to progress events to AJAX requests:
+	(function addXhrProgressEvent(jQuery) {
+		var originalXhr = jQuery.ajaxSettings.xhr;
+		jQuery.ajaxSetup({
+			xhr: function() {
+				var req = originalXhr.call(jQuery.ajaxSettings), that = this;
+				if (req) {
+					if (typeof req.addEventListener == "function" && that.progress !== undefined) {
+						req.addEventListener("progress", function(evt) {
+							that.progress(evt);
+						}, false);
+					}
+					if (typeof req.upload == "object" && that.progressUpload !== undefined) {
+						req.upload.addEventListener("progress", function(evt) {
+							that.progressUpload(evt);
+						}, false);
+					}
+				}
+				return req;
+			}
+		});
+	})(jQuery);
+	
+	function show() {
+		progressBar.show();
+	}
+	
+	function hide() {
+		progressBar.hide();
+	}
+	
+	function setValue(value) {
+		progressBar.attr("value", value);
+	}
+	
+	// public API:
+	this.show = show;
+	this.hide = hide;
+	this.setValue = setValue;
+}
+
+/**
+ * WiseChatEmoticonsPanel class is responsible for displaying emoticons layer and inserting selected emoticon
+ * into message input field.
+ *
+ * @param {Object} options
+ * @param {WiseChatMessages} messages
+ * @constructor
+ */
+function WiseChatEmoticonsPanel(options, messages) {
+    var EMOTICONS = [
+        'zip-it', 'blush', 'angry', 'not-one-care', 'laugh-big', 'please', 'cool', 'minishock',
+        'devil', 'silly', 'smile', 'devil-laugh', 'heart', 'not-guilty', 'hay',
+        'in-love', 'meow', 'tease', 'gift', 'kissy', 'sad', 'speechless', 'goatse',
+        'fools', 'why-thank-you', 'wink', 'angel', 'annoyed', 'flower', 'surprised',
+        'female', 'laugh', 'ill', 'total-shock', 'zzz', 'clock', 'oh', 'mail', 'crazy',
+        'cry', 'boring', 'geek'
+    ];
+    var EMOTICONS_SHORTCUTS = {
+        'smile': ':)', 'wink': ';)', 'laugh': ':D', 'laugh-big': 'xD',
+        'sad': ':(', 'cry': ';(', 'kissy': ':*', 'silly': ':P',
+        'crazy': ';P', 'angry': ':[', 'devil-laugh': ':>', 'devil': ':]', 'goatse': ':|'
+    };
+    var LAYER_ID = 'wcEmoticonsLayer' + options.chatId;
+    var container = jQuery('#' + options.chatId);
+    var insertEmoticonButton = container.find('.wcInsertEmoticonButton');
+    var layer = jQuery('#' + LAYER_ID);
+    if (insertEmoticonButton.length > 0 && layer.length === 0) {
+        layer = jQuery('<div />')
+            .attr('id', LAYER_ID)
+            .attr('class', 'wcEmoticonsLayer')
+            .hide();
+        jQuery('body').append(layer);
+
+        // build buttons:
+        for (var i = 0; i < EMOTICONS.length; i++) {
+            var emoticon = EMOTICONS[i];
+            var imageSrc = options.emoticonsBaseURL + emoticon + '.png';
+            var button = jQuery('<a />')
+                .attr('href', 'javascript://')
+                .attr('title', emoticon)
+                .append(jQuery('<img />').attr('src', imageSrc))
+                .click(function (emoticon) {
+                    return function () {
+                        onEmoticonClick(emoticon);
+                    }
+                }(emoticon));
+            layer.append(button);
+        }
+	}
+
+    function hideLayer() {
+        layer.hide();
+        jQuery(document).unbind("mousedown", onDocumentMouseDown);
+    }
+
+    function showLayer() {
+        layer.show();
+        jQuery(document).bind("mousedown", onDocumentMouseDown);
+    }
+
+    function onDocumentMouseDown(event) {
+        if (insertEmoticonButton[0] != event.target && layer[0] != event.target && !jQuery.contains(layer[0], event.target)) {
+            hideLayer();
+        }
+    }
+
+	function onInsertEmoticonButtonClick() {
+        if (!layer.is(':visible')) {
+            layer.css({
+                top: insertEmoticonButton.offset().top,
+                left: insertEmoticonButton.offset().left - layer.outerWidth() - 5
+            });
+            showLayer();
+        } else {
+            hideLayer();
+        }
+	}
+
+    var onEmoticonClick = function(emoticon) {
+        var emoticonCode = EMOTICONS_SHORTCUTS[emoticon] ? EMOTICONS_SHORTCUTS[emoticon] : '<' + emoticon + '>';
+        messages.appendTextToInputField(emoticonCode);
+        hideLayer();
+    };
+
+	insertEmoticonButton.click(onInsertEmoticonButtonClick);
 }

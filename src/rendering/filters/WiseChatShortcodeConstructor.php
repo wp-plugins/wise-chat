@@ -3,12 +3,12 @@
 /**
  * Wise Chat message shortcodes builders.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatShortcodeConstructor {
 	const IMAGE_SHORT_TAG = '[img id="%d" src="%s" src-th="%s" src-org="%s"]';
 	const ATTACHMENT_SHORT_TAG = '[attachment id="%d" src="%s" name-org="%s"]';
+	const YOUTUBE_SHORT_TAG = '[youtube movie-id="%s" src-org="%s"]';
 	
 	/**
 	* Constructs image shortcode.
@@ -35,5 +35,17 @@ class WiseChatShortcodeConstructor {
 	*/
 	public static function getAttachmentShortcode($id, $source, $originalName) {
 		return sprintf(self::ATTACHMENT_SHORT_TAG, $id, $source, $originalName);
+	}
+	
+	/**
+	* Constructs YouTube shortcode.
+	*
+	* @param string $movieId
+	* @param string $originalSrc
+	*
+	* @return string
+	*/
+	public static function getYouTubeShortcode($movieId, $originalSrc) {
+		return sprintf(self::YOUTUBE_SHORT_TAG, $movieId, $originalSrc);
 	}
 }	

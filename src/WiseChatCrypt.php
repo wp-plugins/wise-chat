@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Wise Chat encryption support.
+ * WiseChat encryption support.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatCrypt {
 	const KEY_BITS = 512;

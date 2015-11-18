@@ -1,16 +1,16 @@
 <?php
 
-require_once('src/rendering/filters/WiseChatLinksPostFilter.php');
+WiseChatContainer::load('rendering/filters/post/WiseChatLinksPostFilter');
 
-class WiseChatLinksPostFilterTest extends PHPUnit_Framework_TestCase
-{
+class WiseChatLinksPostFilterTest extends PHPUnit_Framework_TestCase {
 	
 	/**
 	 * @dataProvider dataNoLinks
 	 */
     public function testPositiveNoLinks($input, $output) {
 		$input = str_replace('"', '&quot;', $input);
-		$this->assertEquals($output, WiseChatLinksPostFilter::filter($input, false));
+        $filter = new WiseChatLinksPostFilter();
+		$this->assertEquals($output, $filter->filter($input, false));
     }
     
     public function dataNoLinks() {
@@ -38,7 +38,8 @@ class WiseChatLinksPostFilterTest extends PHPUnit_Framework_TestCase
 	 */
     public function testPositiveWithLinks($input, $output) {
 		$input = str_replace('"', '&quot;', $input);
-		$this->assertEquals($output, WiseChatLinksPostFilter::filter($input, true));
+        $filter = new WiseChatLinksPostFilter();
+		$this->assertEquals($output, $filter->filter($input, true));
     }
     
     public function dataWithLinks() {

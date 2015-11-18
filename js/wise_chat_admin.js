@@ -1,8 +1,7 @@
 /**
  * Wise Chat admin support JS
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  * @link http://kaine.pl/projects/wp-plugins/wise-chat
  */
 jQuery(document).ready(function($){

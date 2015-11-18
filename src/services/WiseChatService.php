@@ -3,8 +3,7 @@
 /**
  * Wise Chat main services class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatService {
 
@@ -21,12 +20,22 @@ class WiseChatService {
 	/**
 	* @var WiseChatChannelsDAO
 	*/
-	protected $channelsDAO;
+	private $channelsDAO;
 	
 	/**
 	* @var WiseChatUserService
 	*/
 	private $userService;
+
+	/**
+	 * @var WiseChatAuthentication
+	 */
+	private $authentication;
+
+	/**
+	 * @var WiseChatAuthorization
+	 */
+	private $authorization;
 	
 	/**
 	* @var WiseChatOptions
@@ -34,11 +43,43 @@ class WiseChatService {
 	private $options;
 	
 	public function __construct() {
+		WiseChatContainer::load('model/WiseChatChannel');
 		$this->options = WiseChatOptions::getInstance();
-		$this->channelsDAO = new WiseChatChannelsDAO();
-		$this->usersDAO = new WiseChatUsersDAO();
-		$this->channelUsersDAO = new WiseChatChannelUsersDAO();
-		$this->userService = new WiseChatUserService();
+		$this->channelsDAO = WiseChatContainer::get('dao/WiseChatChannelsDAO');
+		$this->usersDAO = WiseChatContainer::get('dao/user/WiseChatUsersDAO');
+		$this->channelUsersDAO = WiseChatContainer::get('dao/WiseChatChannelUsersDAO');
+		$this->userService = WiseChatContainer::get('services/user/WiseChatUserService');
+		$this->authentication = WiseChatContainer::getLazy('services/user/WiseChatAuthentication');
+		$this->authorization = WiseChatContainer::getLazy('services/user/WiseChatAuthorization');
+	}
+
+	/**
+	 * Validates channel name and returns it.
+	 *
+	 * @param string $channelName
+	 * @return string
+	 */
+	public function getValidChatChannelName($channelName) {
+		return $channelName === null || $channelName === '' ? 'global' : $channelName;
+	}
+
+	/**
+	 * Creates a channel if it does not exist and returns it.
+	 * If channel exists it is just returned.
+	 *
+	 * @param string $channelName
+	 *
+	 * @return WiseChatChannel
+	 */
+	public function createAndGetChannel($channelName) {
+		$channel = $this->channelsDAO->getByName($channelName);
+		if ($channel === null) {
+			$channel = new WiseChatChannel();
+			$channel->setName($channelName);
+			$this->channelsDAO->save($channel);
+		}
+
+		return $channel;
 	}
 	
 	/**
@@ -113,9 +154,9 @@ class WiseChatService {
 	}
 	
 	/**
-	* Determines whether the chat is full according to the settings.
+	* Determines if the chat is full according to the users limit in the channel.
 	*
-	* @param string $channel
+	* @param WiseChatChannel $channel
 	*
 	* @return boolean
 	*/
@@ -123,10 +164,10 @@ class WiseChatService {
 		$limit = $this->options->getIntegerOption('channel_users_limit', 0);
 		if ($limit > 0) {
 			$this->userService->refreshChannelUsersData();
-			$amountOfCurrentUsers = $this->channelUsersDAO->getAmountOfUsersInChannel($channel);
-			$currentUserName = $this->usersDAO->getUserName();
+			$amountOfCurrentUsers = $channel != null ? $this->channelUsersDAO->getAmountOfUsersInChannel($channel->getId()) : 0;
+			$user = $this->authentication->getUser();
 			
-			if ($this->channelUsersDAO->getByActiveUserAndChannel($currentUserName, $channel) === null) {
+			if ($user === null || $channel === null || $this->channelUsersDAO->getActiveByUserIdAndChannelId($user->getId(), $channel->getId()) === null) {
 				$amountOfCurrentUsers++;
 			}
 			
@@ -141,29 +182,34 @@ class WiseChatService {
 	/**
 	* Determines whether the current user has to be authorized.
 	*
-	* @param string $channelName
+	* @param WiseChatChannel $channel
 	*
 	* @return boolean
 	*/
-	public function hasUserToBeAuthorizedInChannel($channelName) {
-		$channel = $this->channelsDAO->getByName($channelName);
-		
-		return $channel !== null && strlen($channel->password) > 0 && !$this->usersDAO->isUserAuthorizedForChannel($channelName);
+	public function hasUserToBeAuthorizedInChannel($channel) {
+		return strlen($channel->getPassword()) > 0 && !$this->authorization->isUserAuthorizedForChannel($channel);
+	}
+
+	/**
+	 * Determines if the current user has to enter his/her name.
+	 *
+	 * @return bool
+	 */
+	public function hasUserToBeForcedToEnterName() {
+		return $this->options->isOptionEnabled('force_user_name_selection') && !$this->authentication->isAuthenticated();
 	}
 	
 	/**
 	* Authorizes the current user in the given channel.
 	*
-	* @param string $channelName
+	* @param WiseChatChannel $channel
 	* @param string $password
 	*
 	* @return boolean
 	*/
-	public function authorize($channelName, $password) {
-		$channel = $this->channelsDAO->getByName($channelName);
-		
-		if ($channel !== null && $channel->password === md5($password)) {
-			$this->usersDAO->markAuthorizedForChannel($channelName);
+	public function authorize($channel, $password) {
+		if ($channel->getPassword() === md5($password)) {
+			$this->authorization->markAuthorizedForChannel($channel);
 			return true;
 		} else {
 			return false;
@@ -171,9 +217,9 @@ class WiseChatService {
 	}
 	
 	/**
-	* Determines whether the amount of the chat channels has been reached.
+	* Determines if the number of channels that current user participates has been reached.
 	*
-	* @param string $channel
+	* @param WiseChatChannel $channel
 	*
 	* @return boolean
 	*/
@@ -182,9 +228,9 @@ class WiseChatService {
 		if ($limit > 0) {
 			$this->userService->refreshChannelUsersData();
 			$amountOfChannels = $this->channelUsersDAO->getAmountOfActiveBySessionId(session_id());
-			$currentUserName = $this->usersDAO->getUserName();
+			$user = $this->authentication->getUser();
 			
-			if ($this->channelUsersDAO->getByActiveUserAndChannel($currentUserName, $channel) === null) {
+			if ($user === null || $channel === null || $this->channelUsersDAO->getActiveByUserIdAndChannelId($user->getId(), $channel->getId()) === null) {
 				$amountOfChannels++;
 			}
 			

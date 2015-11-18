@@ -1,34 +1,35 @@
 <?php
 
-require_once "WiseChatAbstractCommand.php";
-
 /**
- * Wise Chat command: /ban [userName] [duration]
+ * WiseChat command: /ban [userName] [duration]
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatBanCommand extends WiseChatAbstractCommand {
-
 	public function execute() {
-		$user = isset($this->arguments[0]) ? $this->arguments[0] : null;
+		$userName = isset($this->arguments[0]) ? $this->arguments[0] : null;
+        if ($userName === null) {
+            $this->addMessage('Please specify the user');
+            return;
+        }
 		
-		if ($user !== null) {
-			$channelUser = $this->channelUsersDAO->getByUserAndChannel($user, $this->channel);
-			
-			if ($channelUser !== null) {
-				$duration = $this->bansDAO->getDurationFromString($this->arguments[1]);
-				
-				if ($this->bansDAO->createAndSave($channelUser->ip, $duration)) {
-					$this->addMessage("IP ".$channelUser->ip." has been banned, time: {$duration} seconds");
-				} else {
-					$this->addMessage("IP ".$channelUser->ip." is already banned");
-				}
-			} else {
-				$this->addMessage('User was not found');
-			}
-		} else {
-			$this->addMessage('Please specify the user');
-		}
+        $user = $this->usersDAO->getLatestByName($userName);
+        if ($user === null) {
+            $this->addMessage('User was not found');
+            return;
+        }
+
+        $channelUser = $this->channelUsersDAO->getActiveByUserIdAndChannelId($user->getId(), $this->channel->getId());
+        if ($channelUser === null) {
+            $this->addMessage('User was not found');
+            return;
+        }
+
+        $duration = $this->bansService->getDurationFromString($this->arguments[1]);
+        if ($this->bansService->banIpAddress($user->getIp(), $duration)) {
+            $this->addMessage("IP " . $user->getIp() . " has been banned, time: {$duration} seconds");
+        } else {
+            $this->addMessage("IP " . $user->getIp() . " is already banned");
+        }
 	}
 }

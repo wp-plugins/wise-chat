@@ -3,19 +3,20 @@
 /**
  * Wise Chat admin general settings tab class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatGeneralTab extends WiseChatAbstractTab {
 
 	public function getFields() {
 		return array(
+			array('_section', 'General Settings'),
 			array(
 				'access_mode', 'Access Mode', 'selectCallback', 'string',
 				'Chat authorization mode', self::getAccessModes()
 			),
+			array('force_user_name_selection', 'Force Username Selection', 'booleanFieldCallback', 'boolean', 'Blocks access to the chat until an user enters his/her name.'),
 			array('user_actions', 'Actions', 'adminActionsCallback', 'void'),
-			array('_section', 'Chat Opening Hours and Days'),
+			array('_section', 'Chat Opening Hours and Days', 'Server UTC date and time is taken into account. It is currently: '.date('Y-m-d H:i:s')),
 			array('enable_opening_control', 'Enable Opening Control', 'booleanFieldCallback', 'boolean', 'Allows to specify when the chat is available for users.'),
 			array('opening_days', 'Opening Days', 'checkboxesCallback', 'multivalues', 'Select chat opening days.', self::getOpeningDaysValues()),
 			array('opening_hours', 'Opening Hours', 'openingHoursCallback', 'multivalues', 'Specify chat opening hours (HH:MM format)'),
@@ -25,6 +26,7 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 	public function getDefaultValues() {
 		return array(
 			'access_mode' => 0,
+			'force_user_name_selection' => 0,
 			'user_actions' => null,
 			'enable_opening_control' => 0,
 			'opening_days' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
@@ -47,7 +49,7 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 	}
 	
 	public function resetAnonymousCounterAction() {
-		$this->usersDAO->resetUserNameCounter();
+		$this->options->resetUserNameSuffix();
 		$this->addMessage('The prefix has been reset.');
 	}
 	
@@ -64,12 +66,12 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 		$modes = array('AM', 'PM', '24h');
 		$openingModesSelect = sprintf(
 			'<select name="%s[%s][openingMode]" %s data-parent-field="%s">', 
-			WiseChatSettings::OPTIONS_NAME, $id,
+			WiseChatOptions::OPTIONS_NAME, $id,
 			$disabledAttribute, $parentId != null ? $parentId : ''
 		);
 		$closingModesSelect = sprintf(
 			'<select name="%s[%s][closingMode]" %s data-parent-field="%s">', 
-			WiseChatSettings::OPTIONS_NAME, $id,
+			WiseChatOptions::OPTIONS_NAME, $id,
 			$disabledAttribute, $parentId != null ? $parentId : ''
 		);
 		foreach ($modes as $mode) {
@@ -90,7 +92,7 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 				'From: <input type="text" value="%s" placeholder="HH:MM" id="openingHour" name="%s[%s][opening]" pattern="\d{1,2}:\d{2}"
 						%s data-parent-field="%s" style="max-width: 90px;" />'.$openingModesSelect,
 				array_key_exists('opening', $values) ? $values['opening'] : '',
-				WiseChatSettings::OPTIONS_NAME, $id,
+				WiseChatOptions::OPTIONS_NAME, $id,
 				$disabledAttribute,
 				$parentId != null ? $parentId : ''
 			).
@@ -98,7 +100,7 @@ class WiseChatGeneralTab extends WiseChatAbstractTab {
 				'&nbsp;&nbsp; To: <input type="text" value="%s" placeholder="HH:MM" id="closingHour" name="%s[%s][closing]" pattern="\d{1,2}:\d{2}"
 						%s data-parent-field="%s" style="max-width: 90px;" />'.$closingModesSelect,
 				array_key_exists('closing', $values) ? $values['closing'] : '',
-				WiseChatSettings::OPTIONS_NAME, $id,
+				WiseChatOptions::OPTIONS_NAME, $id,
 				$disabledAttribute,
 				$parentId != null ? $parentId : ''
 			).
