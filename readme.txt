@@ -4,7 +4,7 @@ Donate link: http://kaine.pl/projects/wp-plugins/wise-chat/wise-chat-donate
 Tags: chat, plugin, ajax, javascript, shortcode, social, widget, responsive
 Requires at least: 3.6
 Tested up to: 4.3
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ Wise Chat is a chat plugin that helps to build a social network and to increase 
 
 **[Try DEMO here](http://kaine.pl/projects/wp-plugins/wise-chat/wise-chat-demo)** | **[Documentation](http://kaine.pl/projects/wp-plugins/wise-chat/documentation)** | **[Full features list](http://kaine.pl/projects/wp-plugins/wise-chat/features)**
 
-**Warning: Upgrade from version 1.* :** version 2.0 of the plugin brings a lot of changes in the code and database structure. Remember to make a backup before upgrade in case of unexpected issues.
+**Warning: Upgrade from version 1.* :** version 2.* of the plugin brings a lot of changes in the code and database structure. Remember to make a backup before upgrade in case of unexpected issues.
 
 = List of features: =
 
@@ -295,6 +295,9 @@ After you type a message use the key combination: Shift + ENTER
 06. Settings page - compilation of all tabs
 
 == Changelog ==
+
+= 2.0.1 =
+* Fixed bug with rendering chat shortcode
 
 = 2.0 =
 * most of the code has been rewritten, database structure has been changed significantly

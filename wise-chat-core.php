@@ -1,7 +1,7 @@
 <?php
 /*
 	Plugin Name: Wise Chat
-	Version: 2.0.0
+	Version: 2.0.1
 	Plugin URI: http://kaine.pl/projects/wp-plugins/wise-chat/wise-chat-donate
 	Description: Fully-featured chat plugin for WordPress. It requires no server, supports multiple channels, bad words filtering, themes, appearance settings, filters, bans and more.
 	Author: Marcin Ławrowski
@@ -43,15 +43,16 @@ add_action('wp_enqueue_scripts', 'wise_chat_register_common_css');
 // register chat shortcode:
 function wise_chat_shortcode($atts) {
 	$wiseChat = WiseChatContainer::get('WiseChat');
-	echo $wiseChat->getRenderedShortcode($atts);
+	$html = $wiseChat->getRenderedShortcode($atts);
 	$wiseChat->registerResources();
+    return $html;
 }
 add_shortcode('wise-chat', 'wise_chat_shortcode');
 
 // register chat channel stats shortcode:
 function wise_chat_channel_stats_shortcode($atts) {
 	$wiseChatStatsShortcode = WiseChatContainer::get('WiseChatStatsShortcode');
-	echo $wiseChatStatsShortcode->getRenderedChannelStatsShortcode($atts);
+	return $wiseChatStatsShortcode->getRenderedChannelStatsShortcode($atts);
 }
 add_shortcode('wise-chat-channel-stats', 'wise_chat_channel_stats_shortcode');
 
