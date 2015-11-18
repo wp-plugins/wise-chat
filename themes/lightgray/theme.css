@@ -40,7 +40,7 @@
 }
 
 .wcContainer input[type="text"], .wcContainer input[type="password"], .wcContainer textarea {
-	height: 31px; font-size: 13px; line-height: 20px;
+	height: 31px; font-size: 1em; line-height: 20px;
 	background-color: #fff;  border: 1px solid #b9b9bb; border-top-color: #adafae; border-radius: 3px; margin: 0; outline: 0 none; padding: 4px;
 }
 
@@ -172,6 +172,20 @@
 	background: url('gfx/attach.png') center center no-repeat, #ecedef;
 }
 
+.wcContainer a.wcInsertEmoticonButton {
+	background: url('gfx/emoticon.png') center center no-repeat, #ecedef; /* Old browsers */
+	background: url('gfx/emoticon.png') center center no-repeat, -moz-linear-gradient(top,  #ecedef 0%, #cbcfd8 100%); /* FF3.6+ */
+	background: url('gfx/emoticon.png') center center no-repeat, -webkit-gradient(linear, left top, left bottom, color-stop(0%,#ecedef), color-stop(100%,#cbcfd8)); /* Chrome,Safari4+ */
+	background: url('gfx/emoticon.png') center center no-repeat, -webkit-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* Chrome10+,Safari5.1+ */
+	background: url('gfx/emoticon.png') center center no-repeat, -o-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* Opera 11.10+ */
+	background: url('gfx/emoticon.png') center center no-repeat, -ms-linear-gradient(top,  #ecedef 0%,#cbcfd8 100%); /* IE10+ */
+	background: url('gfx/emoticon.png') center center no-repeat, linear-gradient(to bottom,  #ecedef 0%,#cbcfd8 100%); /* W3C */
+}
+
+.wcContainer a.wcInsertEmoticonButton:hover {
+	background: url('gfx/emoticon.png') center center no-repeat, #ecedef;
+}
+
 /* Users list: */
 .wcContainer .wcUsersList {
 	border: none; background-color: #fff color: #111;
@@ -185,5 +199,17 @@
 
 .wcContainer .wcError {
 	padding: 10px; color: #ffffff; background-color: rgb(247,66,67); border-radius: 5px; border: 1px solid rgb(207,46,47);
-	display: inline-block;
+	display: inline-block; margin-top: 5px;
+}
+
+div.colorPicker-palette {
+	border: 1px solid #b9b9bb !important; border-radius: 5px !important;
+}
+
+.wcEmoticonsLayer {
+	border: 1px solid #b9b9bb; border-radius: 5px;
+}
+
+.wcUserNameHint {
+	margin-bottom: 4px;
 }

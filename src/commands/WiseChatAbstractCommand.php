@@ -1,17 +1,14 @@
 <?php
 
 /**
- * Wise Chat abstract command.
+ * WiseChat abstract command.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
- * @project wise-chat
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
-class WiseChatAbstractCommand {
-	const SYSTEM_USER_NAME = 'System';
+abstract class WiseChatAbstractCommand {
 
 	/**
-	* @var string
+	* @var WiseChatChannel
 	*/
 	protected $channel;
 	
@@ -39,17 +36,46 @@ class WiseChatAbstractCommand {
 	* @var WiseChatBansDAO
 	*/
 	protected $bansDAO;
-	
+
+	/**
+	 * @var WiseChatAuthentication
+	 */
+	protected $authentication;
+
+	/**
+	 * @var WiseChatBansService
+	 */
+	protected $bansService;
+
+	/**
+	 * @var WiseChatMessagesService
+	 */
+	private $messagesService;
+
+	/**
+	 * @param WiseChatChannel $channel
+	 * @param array $arguments
+	 */
 	public function __construct($channel, $arguments) {
-		$this->messagesDAO = new WiseChatMessagesDAO();
-		$this->bansDAO = new WiseChatBansDAO();
-		$this->usersDAO = new WiseChatUsersDAO();
-		$this->channelUsersDAO = new WiseChatChannelUsersDAO();
+		$this->messagesDAO = WiseChatContainer::get('dao/WiseChatMessagesDAO');
+		$this->bansDAO = WiseChatContainer::get('dao/WiseChatBansDAO');
+		$this->usersDAO = WiseChatContainer::get('dao/user/WiseChatUsersDAO');
+		$this->channelUsersDAO = WiseChatContainer::get('dao/WiseChatChannelUsersDAO');
+		$this->authentication = WiseChatContainer::getLazy('services/user/WiseChatAuthentication');
+		$this->bansService = WiseChatContainer::get('services/WiseChatBansService');
+		$this->messagesService = WiseChatContainer::get('services/WiseChatMessagesService');
 		$this->arguments = $arguments;
 		$this->channel = $channel;
 	}
 	
 	protected function addMessage($message) {
-		$this->messagesDAO->addMessage(self::SYSTEM_USER_NAME, $this->channel, $message, true);
+		$this->messagesService->addMessage($this->authentication->getSystemUser(), $this->channel, $message, true);
 	}
+
+    /**
+     * Executes command using arguments.
+     *
+     * @return null
+     */
+    abstract public function execute();
 }

@@ -1,10 +1,9 @@
-<?php 
+<?php
 
 /**
  * Wise Chat admin abstract tab class.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 abstract class WiseChatAbstractTab {
 
@@ -27,16 +26,26 @@ abstract class WiseChatAbstractTab {
 	* @var WiseChatMessagesDAO
 	*/
 	protected $messagesDAO;
-	
+
 	/**
-	* @var WiseChatActionsDAO
-	*/
-	protected $actionsDAO;
-	
+	 * @var WiseChatActions
+	 */
+	protected $actions;
+
 	/**
 	* @var WiseChatFiltersDAO
 	*/
 	protected $filtersDAO;
+
+	/**
+	 * @var WiseChatBansService
+	 */
+	protected $bansService;
+
+	/**
+	 * @var WiseChatMessagesService
+	 */
+	protected $messagesService;
 	
 	/**
 	* @var WiseChatOptions
@@ -45,12 +54,14 @@ abstract class WiseChatAbstractTab {
 	
 	public function __construct() {
 		$this->options = WiseChatOptions::getInstance();
-		$this->channelsDAO = new WiseChatChannelsDAO();
-		$this->bansDAO = new WiseChatBansDAO();
-		$this->usersDAO = new WiseChatUsersDAO();
-		$this->messagesDAO = new WiseChatMessagesDAO();
-		$this->actionsDAO = new WiseChatActionsDAO();
-		$this->filtersDAO = new WiseChatFiltersDAO();
+		$this->channelsDAO = WiseChatContainer::get('dao/WiseChatChannelsDAO');
+		$this->bansDAO = WiseChatContainer::get('dao/WiseChatBansDAO');
+		$this->usersDAO = WiseChatContainer::get('dao/user/WiseChatUsersDAO');
+		$this->messagesDAO = WiseChatContainer::get('dao/WiseChatMessagesDAO');
+		$this->filtersDAO = WiseChatContainer::get('dao/WiseChatFiltersDAO');
+		$this->actions = WiseChatContainer::getLazy('services/user/WiseChatActions');
+		$this->bansService = WiseChatContainer::get('services/WiseChatBansService');
+		$this->messagesService = WiseChatContainer::get('services/WiseChatMessagesService');
 	}
 	
 	/**
@@ -123,7 +134,11 @@ abstract class WiseChatAbstractTab {
 					break;
 				case 'integer':
 					if (isset($inputValue[$id])) {
-						$newInputValue[$id] = absint($value);
+						if (intval($value).'' != $value) {
+							$newInputValue[$id] = '';
+						} else {
+							$newInputValue[$id] = absint($value);
+						}
 					}
 					break;
 				case 'string':
@@ -163,13 +178,15 @@ abstract class WiseChatAbstractTab {
 		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" /><p class="description">%s</p>',
+			'<input type="text" id="%s" name="'.WiseChatOptions::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" />',
 			$id, $id,
 			$this->options->getEncodedOption($id, $defaultValue),
 			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
-			$parentId != null ? $parentId : '',
-			$hint
+			$parentId != null ? $parentId : ''
 		);
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**
@@ -187,13 +204,15 @@ abstract class WiseChatAbstractTab {
 		$parentId = $this->getFieldParent($id);
 		
 		printf(
-			'<textarea id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" cols="70" rows="6" %s data-parent-field="%s">%s</textarea><p class="description">%s</p>',
+			'<textarea id="%s" name="'.WiseChatOptions::OPTIONS_NAME.'[%s]" cols="70" rows="6" %s data-parent-field="%s">%s</textarea>',
 			$id, $id,
 			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
 			$parentId != null ? $parentId : '',
-			$this->options->getEncodedOption($id, $defaultValue),
-			$hint
+			$this->options->getEncodedOption($id, $defaultValue)
 		);
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**
@@ -211,13 +230,15 @@ abstract class WiseChatAbstractTab {
 		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="text" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" class="wc-color-picker" /><p class="description">%s</p>',
+			'<input type="text" id="%s" name="'.WiseChatOptions::OPTIONS_NAME.'[%s]" value="%s" %s data-parent-field="%s" class="wc-color-picker" />',
 			$id, $id,
 			$this->options->getEncodedOption($id, $defaultValue),
 			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
-			$parentId != null ? $parentId : '',
-			$hint
+			$parentId != null ? $parentId : ''
 		);
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**
@@ -235,13 +256,15 @@ abstract class WiseChatAbstractTab {
 		$parentId = $this->getFieldParent($id);
 	
 		printf(
-			'<input type="checkbox" id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" value="1" %s  %s data-parent-field="%s" /><p class="description">%s</p>',
+			'<input type="checkbox" id="%s" name="'.WiseChatOptions::OPTIONS_NAME.'[%s]" value="1" %s  %s data-parent-field="%s" />',
 			$id, $id, 
 			$this->options->isOptionEnabled($id, $defaultValue == 1) ? ' checked="1" ' : '',
 			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
-			$parentId != null ? $parentId : '',
-			$hint
+			$parentId != null ? $parentId : ''
 		);
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**
@@ -266,12 +289,15 @@ abstract class WiseChatAbstractTab {
 		}
 		
 		printf(
-			'<select id="%s" name="'.WiseChatSettings::OPTIONS_NAME.'[%s]" %s data-parent-field="%s">%s</select><p class="description">%s</p>',
+			'<select id="%s" name="'.WiseChatOptions::OPTIONS_NAME.'[%s]" %s data-parent-field="%s">%s</select>',
 			$id, $id,
 			$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? ' disabled="1" ' : '',
 			$parentId != null ? $parentId : '',
-			$optionsHtml, $hint
+			$optionsHtml
 		);
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**
@@ -294,7 +320,7 @@ abstract class WiseChatAbstractTab {
 		foreach ($options as $key => $value) {
 			$html .= sprintf(
 				'<label><input type="checkbox" value="%s" name="%s[%s][]" %s %s data-parent-field="%s" />%s</label>&nbsp;&nbsp; ', 
-				$key, WiseChatSettings::OPTIONS_NAME, $id, 
+				$key, WiseChatOptions::OPTIONS_NAME, $id, 
 				in_array($value, $values) ? 'checked="1"' : '',
 				$parentId != null && !$this->options->isOptionEnabled($parentId, false) ? 'disabled="1"' : '',
 				$parentId != null ? $parentId : '',
@@ -302,7 +328,11 @@ abstract class WiseChatAbstractTab {
 			);
 		}
 		
-		printf(sprintf('%s<p class="description">%s</p>', $html, $hint));
+		printf($html);
+		
+		if (strlen($hint) > 0) {
+			printf('<p class="description">%s</p>', $hint);
+		}
 	}
 	
 	/**

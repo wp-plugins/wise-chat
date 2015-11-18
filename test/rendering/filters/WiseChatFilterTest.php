@@ -1,9 +1,8 @@
 <?php
 
-require_once('src/rendering/filters/WiseChatFilter.php');
+WiseChatContainer::load('rendering/filters/pre/WiseChatFilter');
 
-class WiseChatFilterTest extends PHPUnit_Framework_TestCase
-{
+class WiseChatFilterTest extends PHPUnit_Framework_TestCase {
 	private static $mbExtension = 'mbstring';
 	
 	/**

@@ -3,148 +3,171 @@
 /**
  * Wise Chat bans DAO
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatBansDAO {
 	/**
 	* @var WiseChatOptions
 	*/
 	private $options;
+
+	/**
+	 * @var string
+	 */
+	private $table;
 	
 	public function __construct() {
+		WiseChatContainer::load('model/WiseChatBan');
 		$this->options = WiseChatOptions::getInstance();
+		$this->table = WiseChatInstaller::getBansTable();
 	}
-	
+
 	/**
-	* Deletes bans that are out of date.
-	*
-	* @return null
-	*/
-	public function deleteOldBans() {
+	 * Creates or updates the ban and returns it.
+	 *
+	 * @param WiseChatBan $ban
+	 *
+	 * @return WiseChatBan
+	 * @throws Exception On validation error
+	 */
+	public function save($ban) {
 		global $wpdb;
-		
-		$time = time();
-		$table = WiseChatInstaller::getBansTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE time < $time");
+
+		// low-level validation:
+		if ($ban->getTime() === null) {
+			throw new Exception('Time cannot equal null');
+		}
+		if ($ban->getCreated() === null) {
+			throw new Exception('Created time cannot equal null');
+		}
+		if ($ban->getIp() === null) {
+			throw new Exception('IP address cannot equal null');
+		}
+
+		// prepare ban data:
+		$columns = array(
+			'time' => $ban->getTime(),
+			'created' => $ban->getCreated(),
+			'ip' => $ban->getIp()
+		);
+
+		// update or insert:
+		if ($ban->getId() !== null) {
+			$wpdb->update($this->table, $columns, array('id' => $ban->getId()), '%s', '%d');
+		} else {
+			$wpdb->insert($this->table, $columns);
+			$ban->setId($wpdb->insert_id);
+		}
+
+		return $ban;
 	}
-	
+
 	/**
-	* Returns details of the first ban added on specific IP address.
-	* Retruns null if no bans were detected.
-	*
-	* @param string $ip Given IP address
-	*
-	* @return array|null
-	*/
-	public function getBanByIp($ip) {
+	 * Returns ban by ID.
+	 *
+	 * @param integer $id
+	 *
+	 * @return WiseChatBan|null
+	 */
+	public function get($id) {
 		global $wpdb;
-		
-		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$bans = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\" LIMIT 1;");
-		
-		return is_array($bans) && count($bans) > 0 ? $bans[0] : null;
+
+		$sql = sprintf('SELECT * FROM %s WHERE id = %d;', $this->table, $id);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			return $this->populateData($results[0]);
+		}
+
+		return null;
 	}
-	
+
 	/**
-	* Checks whether given IP is banned.
-	*
-	* @param string $ip Given IP address
-	*
-	* @return boolean
-	*/
-	public function isIpBanned($ip) {
-		return $this->getBanByIp($ip) !== null;
+	 * Returns ban by IP address.
+	 *
+	 * @param string $ip
+	 *
+	 * @return WiseChatBan|null
+	 */
+	public function getByIp($ip) {
+		global $wpdb;
+
+		$sql = sprintf("SELECT * FROM %s WHERE ip = '%s' LIMIT 1;", $this->table, addslashes($ip));
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			return $this->populateData($results[0]);
+		}
+
+		return null;
 	}
-	
+
 	/**
-	* Returns all bans.
-	*
-	* @return array
-	*/
+	 * Returns all bans sorted by time.
+	 *
+	 * @return WiseChatBan[]
+	 */
 	public function getAll() {
 		global $wpdb;
-		
-		$table = WiseChatInstaller::getBansTable();
-		$bans = $wpdb->get_results("SELECT * FROM {$table};");
-		
+
+		$bans = array();
+		$sql = sprintf('SELECT * FROM %s ORDER BY time ASC;', $this->table);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results)) {
+			foreach ($results as $result) {
+				$bans[] = $this->populateData($result);
+			}
+		}
+
 		return $bans;
 	}
-	
+
 	/**
-	* Removes ban by IP address.
-	*
-	* @param string $ip Given IP address
-	*
-	* @return null
-	*/
+	 * Deletes bans that are older than the given time.
+	 *
+	 * @param integer $time
+	 *
+	 * @return null
+	 */
+	public function deleteOlder($time) {
+		global $wpdb;
+
+		$time = intval($time);
+		$wpdb->get_results("DELETE FROM {$this->table} WHERE time < $time");
+	}
+
+	/**
+	 * Deletes bans by IP address.
+	 *
+	 * @param string $ip Given IP address
+	 *
+	 * @return null
+	 */
 	public function deleteByIp($ip) {
 		global $wpdb;
-		
+
 		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$wpdb->get_results("DELETE FROM {$table} WHERE ip = '{$ip}'");
+		$wpdb->get_results("DELETE FROM {$this->table} WHERE ip = '{$ip}'");
 	}
-	
+
 	/**
-	* Creates and saves a new ban on IP address.
-	*
-	* @param string $ip Given IP address
-	* @param integer $duration Duration of the ban (in seconds)
-	*
-	* @return null
-	*/
-	public function createAndSave($ip, $duration) {
-		global $wpdb;
-		
-		$ip = addslashes($ip);
-		$table = WiseChatInstaller::getBansTable();
-		$currentBan = $wpdb->get_results("SELECT * FROM {$table} WHERE ip = \"{$ip}\";");
-		
-		if (is_array($currentBan) && count($currentBan) > 0) {
-			return false;
-		} else {
-			$wpdb->insert($table,
-				array(
-					'created' => time(),
-					'time' => time() + $duration,
-					'ip' => $ip
-				)
-			);
-			
-			return true;
+	 * Converts raw object into WiseChatBan object.
+	 *
+	 * @param stdClass $rawBanData
+	 *
+	 * @return WiseChatBan
+	 */
+	private function populateData($rawBanData) {
+		$ban = new WiseChatBan();
+		if ($rawBanData->id > 0) {
+			$ban->setId(intval($rawBanData->id));
 		}
-	}
-	
-	/**
-	* Converts duration string into amount of seconds. 
-	* If the value cannot be determined the default value is returned. 
-	*
-	* @param string $durationString Eg. 1h, 2d, 7m
-	* @param integer $defaultValue One hour
-	*
-	* @return integer
-	*/
-	public function getDurationFromString($durationString, $defaultValue = 3600) {
-		$duration = $defaultValue;
-		
-		if (strlen($durationString) > 0) {
-			if (preg_match('/\d+m/', $durationString)) {
-				$duration = intval($durationString) * 60;
-			}
-			if (preg_match('/\d+h/', $durationString)) {
-				$duration = intval($durationString) * 60 * 60;
-			}
-			if (preg_match('/\d+d/', $durationString)) {
-				$duration = intval($durationString) * 60 * 60 * 24;
-			}
-			
-			if ($duration === 0) {
-				$duration = $defaultValue;
-			}
+		if ($rawBanData->time > 0) {
+			$ban->setTime(intval($rawBanData->time));
 		}
-		
-		return $duration;
+		if ($rawBanData->created > 0) {
+			$ban->setCreated(intval($rawBanData->created));
+		}
+		$ban->setIp($rawBanData->ip);
+
+		return $ban;
 	}
 }

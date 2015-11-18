@@ -1,19 +1,22 @@
 <?php
 
-require_once('src/rendering/filters/WiseChatLinksPreFilter.php');
-require_once('src/rendering/filters/WiseChatShortcodeConstructor.php');
-require_once('src/messages/WiseChatImagesDownloader.php');
+WiseChatContainer::load('rendering/filters/pre/WiseChatLinksPreFilter');
+WiseChatContainer::load('rendering/filters/WiseChatShortcodeConstructor');
+WiseChatContainer::load('services/WiseChatImagesService');
+WiseChatContainer::load('services/user/WiseChatActions');
+WiseChatContainer::load('services/user/WiseChatAuthentication');
 
-class WiseChatLinksPreFilterTest extends PHPUnit_Framework_TestCase
-{
+class WiseChatLinksPreFilterTest extends PHPUnit_Framework_TestCase {
 	
 	/**
 	 * @dataProvider dataNoImages
 	 */
     public function testPositiveNoImages($input, $output) {
-		$linksPreFilter = new WiseChatLinksPreFilter(new WiseChatImagesDownloaderStub());
-		
-		$this->assertEquals($output, $linksPreFilter->filter($input, 'channel', false));
+        WiseChatContainer::replace('services/user/WiseChatActions', new WiseChatActionsStub());
+        WiseChatContainer::replace('services/WiseChatImagesService', new WiseChatImagesServiceStub());
+        WiseChatContainer::replace('services/user/WiseChatAuthentication', new WiseChatAuthenticationStub());
+		$linksPreFilter = new WiseChatLinksPreFilter();
+		$this->assertEquals($output, $linksPreFilter->filter($input, false));
     }
     
     public function dataNoImages() {
@@ -50,9 +53,12 @@ class WiseChatLinksPreFilterTest extends PHPUnit_Framework_TestCase
 	 * @dataProvider dataWithImages
 	 */
     public function testPositiveWithImages($input, $output) {
-		$linksPreFilter = new WiseChatLinksPreFilter(new WiseChatImagesDownloaderStub());
-		
-		$this->assertEquals($output, $linksPreFilter->filter($input, 'channel', true));
+        WiseChatContainer::replace('services/user/WiseChatActions', new WiseChatActionsStub());
+        WiseChatContainer::replace('services/WiseChatImagesService', new WiseChatImagesServiceStub());
+        WiseChatContainer::replace('services/user/WiseChatAuthentication', new WiseChatAuthenticationStub());
+        $linksPreFilter = new WiseChatLinksPreFilter();
+
+		$this->assertEquals($output, $linksPreFilter->filter($input, true));
     }
     
     public function dataWithImages() {
@@ -63,13 +69,12 @@ class WiseChatLinksPreFilterTest extends PHPUnit_Framework_TestCase
 			array("the.image.pl/my.jpg", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg"]'),
 			array("the.image.pl/my.gif", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.gif"]'),
 			array("the.image.pl/my.png", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.png"]'),
-			array("the.image.pl/my.bmp", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.bmp"]'),
-			array("the.image.pl/my.tiff", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.tiff"]'),
-			array("the.image.pl/my.tiff?a=s&s", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.tiff?a=s&s"]'),
-			array("http://the.image.pl/my.tiff", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.tiff"]'),
-			array("[http://the.image.pl/my.tiff]", '[[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.tiff]"]'),
-			array("H: http://the.image.pl/my.tiff", 'H: [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.tiff"]'),
-			array("H: http://the.image.pl/my.tiff?hl=pl&q=pozna%C5%84+%22:)%22", 'H: [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.tiff?hl=pl&q=pozna%C5%84+%22:)%22"]'),
+			array("the.image.pl/my.jpg", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg"]'),
+			array("the.image.pl/my.jpg?a=s&s", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg?a=s&s"]'),
+			array("http://the.image.pl/my.jpg", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.jpg"]'),
+			array("[http://the.image.pl/my.jpg]", '[[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.jpg]"]'),
+			array("H: http://the.image.pl/my.jpg", 'H: [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.jpg"]'),
+			array("H: http://the.image.pl/my.jpg?hl=pl&q=pozna%C5%84+%22:)%22", 'H: [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="http://the.image.pl/my.jpg?hl=pl&q=pozna%C5%84+%22:)%22"]'),
 			array("the.image.pl/my.jpg?thecode=3445324", '[img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg?thecode=3445324"]'),
 			array("test1 wp.pl the.image.pl/my.jpg test2", 'test1 [link src="wp.pl"] [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg"] test2'),
 			array("test1 http://wp.pl the.image.pl/my.jpg test2", 'test1 [link src="http://wp.pl"] [img id="1" src="IMAGE_SRC" src-th="IMAGE_TH_SRC" src-org="the.image.pl/my.jpg"] test2'),
@@ -79,14 +84,22 @@ class WiseChatLinksPreFilterTest extends PHPUnit_Framework_TestCase
     }
 }
 
-class WiseChatImagesDownloaderStub extends WiseChatImagesDownloader {
+class WiseChatImagesServiceStub extends WiseChatImagesService {
 	public function __construct() { }
 	
-	public function downloadImage($imageUrl, $channel) {
+	public function downloadImage($imageUrl) {
 		return array(
 			'id' => 1,
 			'image' => 'IMAGE_SRC',
 			'image-th' => 'IMAGE_TH_SRC'
 		);
 	}
+}
+
+class WiseChatActionsStub extends WiseChatActions {
+	public function __construct() { }
+}
+
+class WiseChatAuthenticationStub extends WiseChatAuthentication {
+	public function __construct() { }
 }

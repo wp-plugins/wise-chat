@@ -3,11 +3,10 @@
 /**
  * Wise Chat actions DAO. Actions are commands sent from the chat server to each client.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatActionsDAO {
-	const ACTIONS_LIMIT = 10;
+	const ACTIONS_LIMIT = 100;
 	
 	/**
 	* @var WiseChatOptions
@@ -20,93 +19,136 @@ class WiseChatActionsDAO {
 	private $table;
 	
 	public function __construct() {
+		WiseChatContainer::load('model/WiseChatAction');
 		$this->options = WiseChatOptions::getInstance();
 		$this->table = WiseChatInstaller::getActionsTable();
 	}
-	
+
 	/**
-	* Returns ID of the last action.
-	*
-	* @return integer
-	*/
-	public function getLastActionId() {
+	 * Creates or updates the action and returns it.
+	 *
+	 * @param WiseChatAction $action
+	 *
+	 * @return WiseChatAction
+	 * @throws Exception On validation error
+	 */
+	public function save($action) {
 		global $wpdb;
-		
+
+		// low-level validation:
+		if ($action->getCommand() === null) {
+			throw new Exception('Command of the action cannot equal null');
+		}
+
+		// prepare action data:
+		$columns = array(
+			'time' => $action->getTime(),
+			'command' => json_encode($action->getCommand())
+		);
+
+		// update or insert:
+		if ($action->getId() !== null) {
+			$columns['user_id'] = $action->getUserId();
+			$wpdb->update($this->table, $columns, array('id' => $action->getId()), '%s', '%d');
+		} else {
+			if ($action->getUserId() !== null) {
+				$columns['user_id'] = $action->getUserId();
+			}
+			$wpdb->insert($this->table, $columns);
+			$action->setId($wpdb->insert_id);
+		}
+
+		return $action;
+	}
+
+	/**
+	 * Returns action by ID.
+	 *
+	 * @param integer $id
+	 *
+	 * @return WiseChatAction|null
+	 */
+	public function get($id) {
+		global $wpdb;
+
+		$sql = sprintf('SELECT * FROM %s WHERE id = %d;', $this->table, $id);
+		$results = $wpdb->get_results($sql);
+		if (is_array($results) && count($results) > 0) {
+			return $this->populateActionData($results[0]);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the last action according to the ID.
+	 *
+	 * @return WiseChatAction|null
+	 */
+	public function getLast() {
+		global $wpdb;
+
 		$actions = $wpdb->get_results("SELECT max(id) AS id FROM {$this->table};");
 		if (is_array($actions) && count($actions) > 0) {
 			$action = $actions[0];
-			return $action->id;
+			return $this->get($action->id);
 		}
-		
-		return 0;
+
+		return null;
 	}
-	
+
 	/**
-	* Returns actions begining from the specified ID.
-	*
-	* @param integer $fromId Offset
-	*
-	* @return array
-	*/
-	public function getActions($fromId) {
+	 * Returns actions beginning from the specified ID and (optionally) by user ID.
+	 *
+	 * @param integer $fromId Offset
+	 * @param integer $userId
+	 *
+	 * @return WiseChatAction[]
+	 */
+	public function getBeginningFromIdAndByUser($fromId, $userId = null) {
 		global $wpdb;
-		
+
 		$conditions = array();
 		$conditions[] = "id > ".intval($fromId);
-		$sql = sprintf("SELECT * FROM %s WHERE %s ORDER BY id ASC LIMIT %d", $this->table, implode(" AND ", $conditions), self::ACTIONS_LIMIT);
-		
-		return $wpdb->get_results($sql);
-	}
-	
-	/**
-	* Returns actions begining from specified ID. The result is JSON ready.
-	* Some of the fields are hidden and command is decoded to array.
-	*
-	* @param integer $fromId Offset
-	*
-	* @return array
-	*/
-	public function getJsonReadyActions($fromId) {
-		$actions = $this->getActions($fromId);
-		foreach ($actions as $action) {
-			unset($action->user);
-			unset($action->time);
-			$action->command = json_decode($action->command, true);
+		if ($userId === null) {
+			$conditions[] = "user_id IS NULL";
+		} else {
+			$conditions[] = sprintf("(user_id IS NULL OR user_id = '%d')", intval($userId));
 		}
-		
+		$sql = sprintf(
+			"SELECT * FROM %s WHERE %s ORDER BY id ASC LIMIT %d",
+			$this->table, implode(" AND ", $conditions), self::ACTIONS_LIMIT
+		);
+
+		$actions = array();
+		$results = $wpdb->get_results($sql);
+		if (is_array($results)) {
+			foreach ($results as $result) {
+				$actions[] = $this->populateActionData($result);
+			}
+		}
+
 		return $actions;
 	}
-	
+
 	/**
-	* Publishes an action in the queue.
-	*
-	* @param string $name Name of the action
-	* @param array $data Additional data for the action
-	* @param string $user Recipient
-	*
-	* @return boolean
-	*/
-	public function publishAction($name, $data, $user = null) {
-		global $wpdb;
-		
-		$name = trim($name);
-		if (strlen($name) === 0 || !is_array($data)) {
-			return false;
+	 * Converts raw object into WiseChatAction object.
+	 *
+	 * @param stdClass $rawActionData
+	 *
+	 * @return WiseChatAction
+	 */
+	private function populateActionData($rawActionData) {
+		$action = new WiseChatAction();
+		if ($rawActionData->id > 0) {
+			$action->setId(intval($rawActionData->id));
 		}
-		
-		$command = array(
-			'name' => $name,
-			'data' => $data
-		);
-		
-		$wpdb->insert($this->table,
-			array(
-				'time' => time(),
-				'user' => $user,
-				'command' => json_encode($command)
-			)
-		);
-		
-		return true;
+		$action->setTime(intval($rawActionData->time));
+		if ($rawActionData->user_id > 0) {
+			$action->setUserId(intval($rawActionData->user_id));
+		}
+		$action->setCommand(json_decode($rawActionData->command, true));
+
+		return $action;
 	}
 }

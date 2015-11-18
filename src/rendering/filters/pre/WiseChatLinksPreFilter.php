@@ -3,18 +3,18 @@
 /**
  * Wise Chat links pre-filter.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatLinksPreFilter {
 	const URL_REGEXP = "/((https|http|ftp)\:\/\/)?([\-_a-z0-9A-Z]+\.)+[a-zA-Z]{2,6}(\/[^ \?]*)?(\?[^\"'<> ]+)?/i";
-	const URL_IMAGE_REGEXP = "/((https|http|ftp)\:\/\/)?([\-_a-z0-9A-Z]+\.)+[a-zA-Z]{2,6}(\/[^ \?]*)?\.(jpg|jpeg|gif|bmp|png|tiff)(\?[^\"'<> ]+)?/i";
+	const URL_YOUTUBE_REGEXP = "/((https|http)\:\/\/)?([\-_a-z0-9A-Z]+\.)*youtube\.com\/watch\?v\=([^\&\"'<> ]+)[^\"'<> ]*/i";
+	const URL_IMAGE_REGEXP = "/((https|http|ftp)\:\/\/)?([\-_a-z0-9A-Z]+\.)+[a-zA-Z]{2,6}(\/[^ \?]*)?\.(jpg|jpeg|gif|png)(\?[^\"'<> ]+)?/i";
 	const URL_PROTOCOLS_REGEXP = "/^(https|http|ftp)\:\/\//i";
 	
 	/**
-	* @var WiseChatImagesDownloader
+	* @var WiseChatImagesService
 	*/
-	private $imagesDownloader;
+	private $imagesService;
 	
 	/**
 	* @var integer
@@ -29,14 +29,13 @@ class WiseChatLinksPreFilter {
 	/**
 	* Constructor
 	*
-	* @param WiseChatImagesDownloader $imagesDownloader
-	*
 	* @return WiseChatLinksPreFilter
 	*/
-	public function __construct($imagesDownloader) {
-		$this->imagesDownloader = $imagesDownloader;
+	public function __construct() {
+        $this->imagesService = WiseChatContainer::get('services/WiseChatImagesService');
+		WiseChatContainer::load('rendering/filters/WiseChatShortcodeConstructor');
 	}
-	
+
 	/**
 	* Created attachments.
 	*
@@ -50,12 +49,12 @@ class WiseChatLinksPreFilter {
 	* Detects URLs in the text and converts them into shortcodes indicating either regular links or images.
 	*
 	* @param string $text HTML-encoded string
-	* @param string $channel Chat channel
 	* @param boolean $detectAndDownloadImages Whether to check and download images
+	* @param boolean $detectYouTubeVideos
 	*
 	* @return string
 	*/
-	public function filter($text, $channel, $detectAndDownloadImages) {
+	public function filter($text, $detectAndDownloadImages, $detectYouTubeVideos = false) {
 		$this->replacementOffset = 0;
 		$this->createdAttachments = array();
 		
@@ -67,6 +66,7 @@ class WiseChatLinksPreFilter {
 			foreach ($matches[0] as $detectedURL) {
 				$shortCode = null;
 				$regularLink = false;
+				$ytMatches = array();
 				
 				if ($detectAndDownloadImages && preg_match(self::URL_IMAGE_REGEXP, $detectedURL)) {
 					$imageUrl = $detectedURL;
@@ -74,13 +74,23 @@ class WiseChatLinksPreFilter {
 						$imageUrl = "http://".$detectedURL;
 					}
 				
-					$result = $this->imagesDownloader->downloadImage($imageUrl, $channel);
-					if ($result != null) {
+					try {
+						$result = $this->imagesService->downloadImage($imageUrl);
 						$this->createdAttachments[] = $result['id'];
 						$shortCode = WiseChatShortcodeConstructor::getImageShortcode($result['id'], $result['image'], $result['image-th'], $detectedURL);
-					} else {
+					} catch (Exception $ex) {
 						$regularLink = true;
+                        $actions = WiseChatContainer::get('services/user/WiseChatActions');
+                        $authentication = WiseChatContainer::get('services/user/WiseChatAuthentication');
+						$actions->publishAction(
+                            'showErrorMessage',
+                            array('message' => $ex->getMessage()),
+                            $authentication->getUser()
+                        );
 					}
+				} elseif ($detectYouTubeVideos && preg_match(self::URL_YOUTUBE_REGEXP, $detectedURL, $ytMatches)) {
+					$movieId = array_pop($ytMatches);
+					$shortCode = WiseChatShortcodeConstructor::getYouTubeShortcode($movieId, $detectedURL);
 				} else {
 					$regularLink = true;
 				}
@@ -97,7 +107,16 @@ class WiseChatLinksPreFilter {
 		
 		return $text;
 	}
-	
+
+    /**
+     * Replaces first occurrence of the needle.
+     *
+     * @param string $needle
+     * @param string $replace
+     * @param string $haystack
+     *
+     * @return string
+     */
 	private function strReplaceFirst($needle, $replace, $haystack) {
 		$pos = strpos($haystack, $needle, $this->replacementOffset);
 		

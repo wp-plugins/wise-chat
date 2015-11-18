@@ -1,23 +1,29 @@
 <?php
 
 /**
- * Wise Chat themes support.
+ * WiseChat themes description.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatThemes {
+    /**
+     * @var array Themes list
+     */
 	private static $themes = array(
 		'' => 'Default',
 		'lightgray' => 'Light Gray',
 		'colddark' => 'Cold Dark'
 	);
-	
+
+    /**
+     * @var array Files definition
+     */
 	private static $themesSettings = array(
 		'' => array(
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/default/message.tpl',
 			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'userName' => '/themes/default/user-name.tpl',
 			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/default/theme.css',
 		),
@@ -25,6 +31,7 @@ class WiseChatThemes {
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/colddark/message.tpl',
 			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'userName' => '/themes/default/user-name.tpl',
 			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/colddark/theme.css',
 		),
@@ -32,6 +39,7 @@ class WiseChatThemes {
 			'mainTemplate' => '/themes/default/main.tpl',
 			'messageTemplate' => '/themes/lightgray/message.tpl',
 			'passwordAuthorization' => '/themes/default/password-authorization.tpl',
+			'userName' => '/themes/default/user-name.tpl',
 			'accessDenied' => '/themes/default/access-denied.tpl',
 			'css' => '/themes/lightgray/theme.css',
 		)
@@ -77,6 +85,10 @@ class WiseChatThemes {
 	
 	public function getAccessDeniedTemplate() {
 		return $this->getThemeProperty('accessDenied');
+	}
+
+	public function getUserNameFormTemplate() {
+		return $this->getThemeProperty('userName');
 	}
 	
 	public function getCss() {

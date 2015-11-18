@@ -1,15 +1,15 @@
 <?php
 
-require_once('src/rendering/filters/WiseChatImagesPostFilter.php');
+WiseChatContainer::load('rendering/filters/post/WiseChatImagesPostFilter');
 
-class WiseChatImagesPostFilterTest extends PHPUnit_Framework_TestCase
-{
+class WiseChatImagesPostFilterTest extends PHPUnit_Framework_TestCase {
 	/**
 	 * @dataProvider data
 	 */
     public function testPositiveImages($input, $output) {
 		$input = str_replace('"', '&quot;', $input);
-		$this->assertEquals($output, WiseChatImagesPostFilter::filter($input, true));
+        $postFilter = new WiseChatImagesPostFilter();
+		$this->assertEquals($output, $postFilter->filter($input, true));
     }
     
     public function data() {
@@ -34,7 +34,8 @@ class WiseChatImagesPostFilterTest extends PHPUnit_Framework_TestCase
 	 */
     public function testPositiveNoImagesButLinks($input, $output) {
 		$input = str_replace('"', '&quot;', $input);
-		$this->assertEquals($output, WiseChatImagesPostFilter::filter($input, false, true));
+        $postFilter = new WiseChatImagesPostFilter();
+		$this->assertEquals($output, $postFilter->filter($input, false, true));
     }
     
     public function dataNoImagesButLinks() {
@@ -59,7 +60,8 @@ class WiseChatImagesPostFilterTest extends PHPUnit_Framework_TestCase
 	 */
     public function testPositiveNoImagesNoLinks($input, $output) {
 		$input = str_replace('"', '&quot;', $input);
-		$this->assertEquals($output, WiseChatImagesPostFilter::filter($input, false, false));
+        $postFilter = new WiseChatImagesPostFilter();
+		$this->assertEquals($output, $postFilter->filter($input, false, false));
     }
     
     public function dataNoImagesNoLinks() {

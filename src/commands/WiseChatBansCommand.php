@@ -1,12 +1,9 @@
 <?php
 
-require_once "WiseChatAbstractCommand.php";
-
 /**
- * Wise Chat command: /bans
+ * WiseChat command: /bans
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatBansCommand extends WiseChatAbstractCommand {
 	public function execute() {
@@ -15,9 +12,9 @@ class WiseChatBansCommand extends WiseChatAbstractCommand {
 		if (is_array($currentBans) && count($currentBans) > 0) {
 			$bans = array();
 			foreach ($currentBans as $ban) {
-				$eta = $ban->time - time();
+				$eta = $ban->getTime() - time();
 				if ($eta > 0) {
-					$bans[] = $ban->ip.' ('.$this->getTimeSummary($eta).')';
+					$bans[] = $ban->getIp().' ('.$this->getTimeSummary($eta).')';
 				}
 			}
 			

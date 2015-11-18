@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Wise Chat filters DAO.
+ * WiseChat custom filters DAO. Filter is a regular expression and replacement text.
  *
- * @version 1.0
- * @author Marcin Ławrowski <marcin.lawrowski@gmail.com>
+ * @author Marcin Ławrowski <marcin@kaine.pl>
  */
 class WiseChatFiltersDAO {
 	const URL_REGEXP = "((https|http|ftp)\:\/\/)?([\-_a-z0-9A-Z]+\.)+[a-zA-Z]{2,6}(\/[^ \?]*)?(\?[^\"'<> ]+)?";
@@ -45,7 +44,7 @@ class WiseChatFiltersDAO {
 	* @param string $replace
 	* @param string $replaceWith
 	*
-	* @return void
+	* @throws Exception If regular expression is invalid
 	*/
 	public function addFilter($type, $replace, $replaceWith) {
 		if ($type === 'regexp' && strlen($replace) > 0 && preg_match("/$replace/", null) === false) {

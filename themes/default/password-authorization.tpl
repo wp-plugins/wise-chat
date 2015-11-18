@@ -1,9 +1,9 @@
 <link rel='stylesheet' href='{{ themeStyles }}' type='text/css' media='all' />
 
 <div class='wcContainer'>
-	{% if showWindowTitle %}
+	{% if windowTitle %}
 		<div class='wcWindowTitle'>{{ windowTitle }}</div>
-	{% endif showWindowTitle %}
+	{% endif windowTitle %}
 	
 	<div class="wcWindowContent">
 		<div class="wcChannelProtectionHint">{{ messageChannelPasswordAuthorizationHint }}</div>
@@ -14,8 +14,8 @@
 			<input type="submit" value="{{ messageLogin }}" />
 		</form>
 		
-		{% if showAuthorizationError %}
+		{% if authorizationError %}
 			<div class='wcError wcChannelAuthorizationError'>{{ authorizationError }}</div>
-		{% endif showAuthorizationError %}
+		{% endif authorizationError %}
 	</div>
 </div>
